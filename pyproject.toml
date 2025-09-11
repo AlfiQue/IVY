@@ -1,0 +1,73 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ivy"
+version = "0.1.0"
+description = "Assistant local IVY"
+authors = [{name = "IVY"}]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "httpx",
+    "pydantic",
+    "pydantic-settings",
+    "python-multipart",
+    "apscheduler",
+    "llama-cpp-python",
+    "numpy",
+    "faiss-cpu",
+    "sentence-transformers",
+    "pytesseract",
+    "python-docx",
+    "openpyxl",
+    "python-pptx",
+    "pyzipper",
+    "prometheus-client",
+    "psutil",
+    "tzdata",
+    "python-dotenv",
+    "pdf2image",
+    "pillow",
+    "python-jose[cryptography]",
+    "passlib[bcrypt]",
+    "itsdangerous",
+    "typer[all]",
+    "watchdog",
+    "aiosqlite",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "black",
+    "isort",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "playwright",
+    "pip-audit",
+    "bandit",
+]
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.hatch.build.targets.wheel]
+packages = [
+  "app",
+  "core",
+  "plugins",
+  "llama_cpp",
+]

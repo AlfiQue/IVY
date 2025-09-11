@@ -1,0 +1,18 @@
+:root { color-scheme: light dark; --bg:#0b0b0b; --fg:#e6e6e6; --accent:#5cc8ff }
+html, body, #root { height:100% }
+body { margin:0; font-family: system-ui, Arial; background:var(--bg); color:var(--fg) }
+a { color: var(--accent); text-decoration: none }
+header, nav { display:flex; gap:.75rem; align-items:center }
+nav a { padding:.5rem .75rem; border-radius:.4rem }
+nav a.active { background:#222 }
+button { padding:.5rem .75rem; border:1px solid #333; background:#111; color:var(--fg); border-radius:.4rem; cursor:pointer }
+input, textarea, select { background:#111; color:var(--fg); border:1px solid #333; border-radius:.3rem; padding:.5rem }
+.row { display:flex; gap:1rem; flex-wrap:wrap }
+.card { border:1px solid #222; border-radius:.6rem; padding:1rem; min-width:260px }
+.grid { display:grid; gap:1rem; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)) }
+.toolbar { display:flex; gap:.5rem; align-items:center; justify-content:space-between; margin:.5rem 0 }
+.muted { opacity:.8 }
+.danger { color:#ff7676 }
+.success { color:#76ffa1 }
+.warn { color:#ffcc66 }
+
