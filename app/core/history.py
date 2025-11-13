@@ -16,6 +16,7 @@ __all__ = [
     "list_events",
     "ping_db",
     "search_events",
+    "get_event",
 ]
 
 
@@ -122,6 +123,8 @@ async def search_events(
     plugin: str | None = None,
     start: str | None = None,
     end: str | None = None,
+    event_type: str | None = None,
+    session_id: str | None = None,
 ) -> dict[str, Any]:
     """Recherche paginée dans les événements avec filtres simples.
 
@@ -136,6 +139,12 @@ async def search_events(
     if plugin:
         where.append("payload LIKE ?")
         params.append(f"%\"{plugin}\"%")
+    if event_type:
+        where.append("type = ?")
+        params.append(event_type)
+    if session_id:
+        where.append("payload LIKE ?")
+        params.append(f"%\"session_id\"%:%\"{session_id}\"%")
     if start:
         where.append("created_at >= ?")
         params.append(start)
@@ -164,6 +173,24 @@ async def search_events(
             pass
         items.append(d)
     return {"items": items, "total": total}
+
+
+async def get_event(event_id: int) -> dict[str, Any] | None:
+    async with _open_db() as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT id, type, payload, created_at FROM events WHERE id = ?",
+            (event_id,),
+        ) as cur:
+            row = await cur.fetchone()
+    if not row:
+        return None
+    d = dict(row)
+    try:
+        d["payload"] = json.loads(d["payload"])
+    except Exception:
+        pass
+    return d
 
 
 async def _purge() -> None:

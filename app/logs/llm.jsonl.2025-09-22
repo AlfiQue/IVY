@@ -1,0 +1,7 @@
+{"timestamp": "2025-09-22 21:27:19,009", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": null}
+{"timestamp": "2025-09-22 21:29:48,641", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": "64fbe2d9-c9f6-4b4e-84f6-1f59e172aa01"}
+{"timestamp": "2025-09-22 21:29:48,671", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": "b0ff76d7-6d19-4fff-88a9-85fa369a3e3f"}
+{"timestamp": "2025-09-22 21:29:48,744", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": null}
+{"timestamp": "2025-09-22 21:31:10,580", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": "2187a619-473e-4eb8-95ae-0f1eac38a022"}
+{"timestamp": "2025-09-22 21:31:10,611", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": "bd6c4379-a34e-4ea6-8ba0-29630f8c5146"}
+{"timestamp": "2025-09-22 21:31:10,678", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": null}

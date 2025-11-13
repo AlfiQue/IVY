@@ -1,46 +1,127 @@
 # Installation
 
-1) Prérequis matériels/OS
-- Windows 11, GPU NVIDIA (testé RTX 4070 Ti) avec pilotes à jour + CUDA/cuBLAS.
-- Python 3.11, Git.
+## 1. Pre-requis
+- Windows 11 (teste) ou Linux/macOS, Python 3.11, Git.
+- Pour l'UI : Node.js 18+.
+- Pour TensorRT-LLM : un serveur NVIDIA (TensorRT-LLM, Triton ou NIM) sur une machine GPU accessible.
 
-2) Créer l’environnement Python (uv + venv)
-- Installer uv: `pip install uv`
-- Cloner le dépôt, puis: `uv pip install -e .[dev]`
-- Option Windows: utilisez `scripts\start-server.bat` (crée `.venv`, installe, lance).
+## 2. Installation Python
+```
+py -m pip install -e .[dev]
+```
+Cette commande installe la pile API et les outils de developpement.
 
-3) llama.cpp (CUDA) — llama-cpp-python
-- Option rapide (CUDA/cuBLAS): `pip install --upgrade llama-cpp-python[cuda]`
-- Ou build local: `set CMAKE_ARGS=-DLLAMA_CUBLAS=1` puis `pip install llama-cpp-python`
-- Placez le modèle GGUF (Llama 3.1 8B Instruct Q5_K_M) sous `models/`.
-- Définir le chemin modèle:
-  - PowerShell: `$env:LLM_MODEL_PATH='models/llama-3.1-8b-instruct.Q5_K_M.gguf'`
-  - Bash: `export LLM_MODEL_PATH=models/llama-3.1-8b-instruct.Q5_K_M.gguf`
-- `app/core/llm.py` vérifie le fichier et stoppe si introuvable.
+En environnement restreint (offline), utilisez :
+```
+py -m pip install -r scripts/requirements-dev-no-llama.txt
+```
 
-4) OCR FR (Tesseract + pdf2image)
-- Installer Tesseract (langue `fra`).
-- Installer Poppler + pdf2image:
-  - Windows: Poppler for Windows (ajouter `bin/` au PATH), `pip install pdf2image`.
-  - macOS: `brew install poppler`.
-  - Linux: `apt install poppler-utils`.
-- Activer/désactiver via `rag_enable_ocr`; langue multi: `rag_ocr_lang=fra+eng`.
+## 3. Lancement
+```
+python -m app.cli serve
+```
+L'application initialise la base `app/data/history.db` et expose l'UI sur http://127.0.0.1:8000/admin.
 
-5) Embeddings BGE‑M3 (offline)
-- `sentence-transformers` est inclus; téléchargez BAAI/bge-m3 au préalable si off‑line (cache HF local).
+UI en mode dev :
+```
+cd webui
+npm install
+npm run dev   # http://127.0.0.1:5173 (VITE_API_URL=http://127.0.0.1:8000)
+```
 
-6) Lancement
-- Backend: `uv run python -m app.cli serve` (ou `scripts\start-server.bat`).
-- UI dev: `cd webui && npm i && npm run dev` (VITE_API_URL=http://127.0.0.1:8000)
-- UI prod: `npm run build` puis `python -m app.cli ui --path webui/dist`
+UI buildée :
+```
+npm run build
+python -m app.cli ui --path webui/dist --port 5174
+```
 
-7) Configuration utile (`config.json.example`)
-- `allowlist_domains`: ["open-meteo.com", "duckduckgo.com"] (pare‑feu sortant)
-- `reset_admin_flag`: `C:\\IVY\\reset_admin.flag`
-- RAG: `rag_inbox_dir`, `rag_knowledge_dir`, `rag_index_dir`
+## 4. Configuration
+- Copier `config.json.example` en `config.json` et ajuster :
+  - `chat_system_prompt`, `embedding_model_name`, `duckduckgo_*`, `tensorrt_llm_*`, `jeedom_*`.
+  - `allowlist_domains` pour le pare-feu sortant.
+  - `reset_admin_flag` (fichier declenchant un mot de passe admin temporaire).
+- Variables possibles via `.env` (chargees par `pydantic-settings`).
 
-Résolution d’erreurs
-- Modèle manquant: vérifier `LLM_MODEL_PATH` et le fichier GGUF.
-- CUDA non détecté: installer `llama-cpp-python[cuda]` ou recompiler avec `LLAMA_CUBLAS=1`.
-- OCR PDF vide: installer Poppler et vérifier `rag_ocr_lang`.
-- FAISS non dispo: fallback NumPy (index.npy). Installez `faiss-cpu` pour de meilleures perfs.
+## 5. Tests rapides
+```
+py -m pytest tests/test_chat_api.py tests/test_history_api.py tests/test_health.py -q
+```
+
+## 6. OCR / RAG (optionnel)
+- Installer Tesseract + Poppler (cf. `OCR.md`).
+- Ajuster `rag_enable_ocr`, `rag_ocr_lang`, etc. si vous utilisez la partie RAG.
+
+## 7. Conseils
+- Pour repartir d'une base vide :
+  ```bash
+  python -m app.cli serve  # cree le schema
+  python - <<'PY'
+  import asyncio
+  from app.core import chat_store
+  asyncio.run(chat_store.clear_all())
+  PY
+  ```
+- Les journaux sont ecrits dans `app/logs/*.jsonl` (audit, server, llm).
+- Pensez a definir `jwt_secret` et a activer `cookie_secure=true` derriere HTTPS.
+
+Bon demarrage !
+
+## Installation TensorRT-LLM
+
+Exemple de sequence (Ubuntu + CUDA 12.8) pour preparer un serveur TensorRT-LLM (voir `docs/TENSORRT_LLM.md` pour le guide detaille) :
+```bash
+pip3 install torch==2.7.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+sudo apt-get -y install libopenmpi-dev
+pip3 install --upgrade pip setuptools
+pip3 install tensorrt_llm
+sudo apt-get update && sudo apt-get -y install git git-lfs
+sudo git lfs install
+
+git clone https://github.com/NVIDIA/TensorRT-LLM.git
+cd TensorRT-LLM
+git submodule update --init --recursive
+git lfs pull
+```
+
+Puis compiler/installer TensorRT-LLM :
+```bash
+cd TensorRT-LLM
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc)
+cmake --install build --prefix build/install
+```
+
+Adaptez les options CMake (`-DTORCH_PATH`, `-DTENSORRT_ROOT`, etc.) selon votre configuration GPU et la documentation NVIDIA.
+
+## Installation TensorRT-LLM via Docker
+```bash
+docker login nvcr.io
+docker pull nvcr.io/nvidia/nim/tensorrt-llm:24.08
+```
+
+Lancement en exposant l'API chat :
+```bash
+docker run --gpus all --rm \
+  -p 8000:8000 \
+  -v /data/models:/models \
+  -e TRTLLM_MODEL=meta/llama-3.1-8b-instruct \
+  nvcr.io/nvidia/nim/tensorrt-llm:24.08
+```
+
+Consultez `docs/TENSORRT_LLM.md` (section Docker & NIM) pour plus de details (volumes, cle API, service systemd).
+
+
+### Option GPU (CUDA)
+Pour compiler llama-cpp-python avec CUDA 12.6 sur Windows :
+`
+set "CUDA_PATH=C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.6"
+set "CUDA_HOME=%CUDA_PATH%"
+set "CUDACXX=%CUDA_PATH%/bin/nvcc.exe"
+set "PATH=%CUDA_PATH%/bin;%PATH%"
+set CMAKE_ARGS=
+set "CMAKE_ARGS=-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=89 -DCUDAToolkit_ROOT=%CUDA_PATH%"
+pip install --no-build-isolation --force-reinstall "llama-cpp-python==0.3.16"
+set "CMAKE_ARGS=-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=89 -DCUDAToolkit_ROOT=%CUDA_PATH% -DCMAKE_CUDA_COMPILER:FILEPATH=%CUDACXX%"
+`
+Réglez DCMAKE_CUDA_ARCHITECTURES en fonction de votre GPU (par exemple 75 pour Turing, 89 pour Ada Lovelace).
+

@@ -1,13 +1,15 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import io
 import json
 import shutil
 import zipfile
+import asyncio
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Deque, Dict, List, Optional
 from uuid import uuid4
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -17,14 +19,15 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from app.core.config import Settings, get_settings
 from app.core.logger import get_logger
-from app.core import plugins as plugins_module
-from app.core.llm import LLM
+
+from app.core.llm import LLMClient, build_chat_messages
 
 
 logger = get_logger("server")
 
 
 RETRY_DELAYS = [5, 15, 45]  # seconds
+RECENT_RUNS_LIMIT = 20
 
 
 @dataclass
@@ -34,11 +37,12 @@ class JobMeta:
     params: Dict[str, Any] = field(default_factory=dict)
     schedule: Dict[str, Any] = field(default_factory=dict)
     attempts: int = 0
-    status: str = "PENDING"  # PENDING | RUNNING | SUCCESS | FAILED | RETRYING
+    status: str = "PENDING"  # PENDING | RUNNING | SUCCESS | FAILED | RETRYING | CANCELLED
     last_error: Optional[str] = None
     last_run: Optional[str] = None
     description: Optional[str] = None
     tag: Optional[str] = None
+    recent_runs: Deque[Dict[str, Any]] = field(default_factory=lambda: deque(maxlen=RECENT_RUNS_LIMIT))
 
 
 class JobsManager:
@@ -48,26 +52,71 @@ class JobsManager:
         self.jobs: Dict[str, JobMeta] = {}
         self._cancel_flags: Dict[str, bool] = {}
         self._running: Dict[str, bool] = {}
+        self._needs_scheduler_rebuild = False
+
+    def _record_run(self, meta: JobMeta, status: str, detail: Optional[str] = None) -> None:
+        entry = {
+            "status": status,
+            "timestamp": datetime.now().isoformat(),
+            "detail": detail,
+            "attempts": meta.attempts,
+        }
+        try:
+            meta.recent_runs.appendleft(entry)
+        except Exception:
+            pass
 
     # lifecycle
     def start(self) -> None:
-        if not self.scheduler.running:
-            self.scheduler.start()
+        if self.scheduler.running:
+            return
+        if self._needs_scheduler_rebuild:
+            self._rebuild_scheduler()
+        self.scheduler.start()
 
     def shutdown(self) -> None:
         if self.scheduler.running:
             self.scheduler.shutdown(wait=False)
+            self._needs_scheduler_rebuild = True
 
-    # actions
-    def _run_plugin(self, name: str, params: Dict[str, Any]) -> None:
-        plugins_module.load_plugins()
-        plugins_module.enable(name)
-        plugins_module.start(name)
-        plugins_module.run(name, **params)
+    def _rebuild_scheduler(self) -> None:
+        self.scheduler = BackgroundScheduler(daemon=True)
+        for job_id, meta in self.jobs.items():
+            if meta.status == "CANCELLED":
+                continue
+            try:
+                trigger = self._build_trigger(meta.schedule)
+                self.scheduler.add_job(
+                    self._job_wrapper,
+                    trigger,
+                    args=[job_id],
+                    id=job_id,
+                    replace_existing=True,
+                )
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.warning("failed to reschedule job %s during rebuild: %s", job_id, exc)
+        self._needs_scheduler_rebuild = False
 
-    def _run_llm(self, prompt: str, options: Optional[Dict[str, Any]] = None) -> str:
-        llm = LLM()
-        return llm.infer(prompt, options)
+    # helpers
+    def _run_llm(self, prompt: str, options: Optional[Dict[str, Any]] = None, system: str | None = None) -> str:
+        if not isinstance(prompt, str) or not prompt.strip():
+            raise ValueError("prompt requis pour le job LLM")
+        opts = options or {}
+        temperature = float(opts.get("temperature", getattr(self.settings, "llm_temperature", 0.7)))
+        max_tokens = int(opts.get("max_tokens", getattr(self.settings, "llm_max_output_tokens", 512)))
+        extra_options = {k: v for k, v in opts.items() if k not in {"temperature", "max_tokens"}}
+        client = LLMClient(self.settings)
+        messages = build_chat_messages(system=system, history=None, prompt=prompt)
+        async def _execute() -> dict[str, Any]:
+            return await client.chat(
+                messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                extra_options=extra_options,
+            )
+
+        result = asyncio.run(_execute())
+        return result.get("text", "")
 
     def _export_backup(self) -> Path:
         ts = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -90,65 +139,73 @@ class JobsManager:
         if self._cancel_flags.get(job_id):
             meta.status = "CANCELLED"
             meta.last_run = datetime.now().isoformat()
+            self._cancel_flags.pop(job_id, None)
+            self._record_run(meta, "CANCELLED", detail="pre_run")
             return
         self._running[job_id] = True
         meta.status = "RUNNING"
         meta.last_run = datetime.now().isoformat()
+        self._record_run(meta, "RUNNING")
         try:
-            if meta.type == "plugin":
-                if self._cancel_flags.get(job_id):
-                    meta.status = "CANCELLED"
-                    return
-                self._run_plugin(meta.params.get("name", ""), meta.params.get("params", {}))
-            elif meta.type == "llm":
+            if meta.type == "llm":
                 prompt = meta.params.get("prompt", "")
                 options = meta.params.get("options")
-                if self._cancel_flags.get(job_id):
-                    meta.status = "CANCELLED"
-                    return
-                _ = self._run_llm(prompt, options)
+                system = meta.params.get("system")
+                self._run_llm(prompt, options, system=system)
             elif meta.type == "backup":
                 path = self._export_backup()
-                logger.info(f"Backup exportÃ©: {path}")
+                logger.info(f"Backup exporte: {path}")
+            else:
+                raise ValueError(f"type de job inconnu: {meta.type}")
             meta.status = "SUCCESS"
             meta.attempts = 0
             meta.last_error = None
-        except Exception as exc:  # planifier retry
+            self._record_run(meta, "SUCCESS")
+        except Exception as exc:
             meta.attempts += 1
             meta.last_error = str(exc)
             if meta.attempts <= len(RETRY_DELAYS):
                 delay = RETRY_DELAYS[meta.attempts - 1]
                 meta.status = "RETRYING"
                 run_at = datetime.now() + timedelta(seconds=delay)
-                if delay == 0:
-                    # Retry immédiatement sans replanifier (évite erreurs d'exécuteur arrêté)
-                    self._job_wrapper(job_id)
-                else:
-                    self.scheduler.add_job(self._job_wrapper, DateTrigger(run_date=run_at), args=[job_id])
-                logger.info(f"Job {job_id} Ã©chec, retry dans {delay}s: {exc}")
+                self.scheduler.add_job(self._job_wrapper, DateTrigger(run_date=run_at), args=[job_id])
+                logger.info(f"Job {job_id} echec, retry dans {delay}s: {exc}")
+                self._record_run(meta, "RETRYING", detail=str(exc))
             else:
                 meta.status = "FAILED"
-                logger.info(f"Job {job_id} FAILED aprÃ¨s retries: {exc}")
+                logger.info(f"Job {job_id} FAILED apres retries: {exc}")
+                self._record_run(meta, "FAILED", detail=str(exc))
         finally:
             self._running.pop(job_id, None)
+            self._cancel_flags.pop(job_id, None)
 
     def _build_trigger(self, schedule: Dict[str, Any]):
-        trig = (schedule or {}).get("trigger", "cron")
-        if trig == "interval":
-            kwargs = schedule.get("interval", {})
+        schedule = schedule or {}
+        trigger_type = schedule.get("trigger", "cron")
+        if trigger_type == "interval":
+            interval_cfg = schedule.get("interval") or {}
+            kwargs = {k: v for k, v in interval_cfg.items() if k in {"weeks", "days", "hours", "minutes", "seconds"} and v is not None}
+            if not kwargs:
+                raise ValueError("interval invalide")
             return IntervalTrigger(**kwargs)
-        if trig == "date":
-            kwargs = schedule.get("date", {})
-            run_date = kwargs.get("run_date")
-            # accepter ISO string
+        if trigger_type == "date":
+            run_date = schedule.get("date", {}).get("run_date")
             if isinstance(run_date, str):
-                run_date = datetime.fromisoformat(run_date)
-            return DateTrigger(run_date=run_date or (datetime.now() + timedelta(seconds=1)))
-        # dÃ©faut: cron 03:00
-        kwargs = schedule.get("cron", {})
-        hour = kwargs.get("hour", 3)
-        minute = kwargs.get("minute", 0)
-        return CronTrigger(hour=hour, minute=minute)
+                try:
+                    run_date = datetime.fromisoformat(run_date)
+                except ValueError:
+                    run_date = None
+            if run_date is None:
+                run_date = datetime.now() + timedelta(seconds=1)
+            return DateTrigger(run_date=run_date)
+        cron_cfg = schedule.get("cron") or {}
+        minute = cron_cfg.get("minute", 0)
+        hour = cron_cfg.get("hour", 3)
+        kwargs = {"minute": minute, "hour": hour}
+        day_of_week = cron_cfg.get("day_of_week")
+        if day_of_week:
+            kwargs["day_of_week"] = day_of_week
+        return CronTrigger(**kwargs)
 
     # public API
     def add_job(
@@ -161,11 +218,12 @@ class JobsManager:
         tag: Optional[str] = None,
     ) -> str:
         job_id = uuid4().hex[:12]
+        sanitized_schedule = schedule or {}
         meta = JobMeta(
             id=job_id,
             type=job_type,
             params=params,
-            schedule=schedule or {},
+            schedule=sanitized_schedule,
             description=description,
             tag=tag,
         )
@@ -179,6 +237,7 @@ class JobsManager:
             self.scheduler.remove_job(job_id)
         except Exception:
             pass
+        self._cancel_flags.pop(job_id, None)
         return self.jobs.pop(job_id, None) is not None
 
     def list_jobs(self) -> List[Dict[str, Any]]:
@@ -197,7 +256,6 @@ class JobsManager:
                     "tag": meta.tag if meta else None,
                 }
             )
-        # inclure jobs sans entrÃ©e scheduler (p.ex. FAILED)
         for jid, meta in self.jobs.items():
             if not any(x["id"] == jid for x in items):
                 items.append(
@@ -217,7 +275,6 @@ class JobsManager:
     def run_now(self, job_id: str) -> bool:
         if job_id not in self.jobs:
             return False
-        # planifie une exÃ©cution immÃ©diate
         self.scheduler.add_job(self._job_wrapper, DateTrigger(run_date=datetime.now()), args=[job_id])
         return True
 
@@ -237,7 +294,6 @@ class JobsManager:
             meta.params = params
         if schedule is not None:
             meta.schedule = schedule
-            # rescheduler le job
             try:
                 self.scheduler.remove_job(job_id)
             except Exception:
@@ -254,7 +310,6 @@ class JobsManager:
         meta = self.jobs.get(job_id)
         if not meta:
             return None
-        # tenter de retrouver next_run_time cÃ´tÃ© scheduler
         next_run = None
         try:
             job = next(j for j in self.scheduler.get_jobs() if j.id == job_id)
@@ -275,25 +330,30 @@ class JobsManager:
             "next_run": next_run,
             "description": meta.description,
             "tag": meta.tag,
+            "recent_runs": list(meta.recent_runs),
         }
 
     def cancel_job(self, job_id: str) -> str:
-        # Si le job est programmÃ© (non en cours), on le supprime du scheduler
         try:
             self.scheduler.remove_job(job_id)
             meta = self.jobs.get(job_id)
             if meta:
                 meta.status = "CANCELLED"
+            self._cancel_flags.pop(job_id, None)
             return "cancelled"
         except Exception:
             pass
-        # Sinon, marquer le flag et laisser l'exÃ©cution courante respecter l'annulation
         self._cancel_flags[job_id] = True
         return "cancel_requested"
 
+    def get_recent_runs(self, job_id: str, limit: int = 20) -> List[Dict[str, Any]]:
+        meta = self.jobs.get(job_id)
+        if not meta:
+            return []
+        return list(meta.recent_runs)[:limit]
+
 
 jobs_manager = JobsManager()
-
 
 
 

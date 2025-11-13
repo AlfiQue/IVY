@@ -753,7 +753,6 @@ dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
     { name = "itsdangerous" },
-    { name = "llama-cpp-python" },
     { name = "numpy" },
     { name = "openpyxl" },
     { name = "passlib", extra = ["bcrypt"] },
@@ -801,7 +800,6 @@ requires-dist = [
     { name = "httpx" },
     { name = "isort", marker = "extra == 'dev'" },
     { name = "itsdangerous" },
-    { name = "llama-cpp-python" },
     { name = "numpy" },
     { name = "openpyxl" },
     { name = "passlib", extras = ["bcrypt"] },
@@ -864,18 +862,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/40/71/d89bb0e71b1415453
 wheels = [
     { url = "https://files.pythonhosted.org/packages/af/40/791891d4c0c4dab4c5e187c17261cedc26285fd41541577f900470a45a4d/license_expression-30.4.4-py3-none-any.whl", hash = "sha256:421788fdcadb41f049d2dc934ce666626265aeccefddd25e162a26f23bcbf8a4", size = 120615, upload-time = "2025-07-22T11:13:31.217Z" },
 ]
-
-[[package]]
-name = "llama-cpp-python"
-version = "0.3.16"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "diskcache" },
-    { name = "jinja2" },
-    { name = "numpy" },
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/e4/b4/c8cd17629ced0b9644a71d399a91145aedef109c0333443bef015e45b704/llama_cpp_python-0.3.16.tar.gz", hash = "sha256:34ed0f9bd9431af045bb63d9324ae620ad0536653740e9bb163a2e1fcb973be6", size = 50688636, upload-time = "2025-08-15T04:58:29.212Z" }
 
 [[package]]
 name = "lxml"

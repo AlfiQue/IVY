@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import deque
 from time import monotonic
-from typing import Awaitable, Callable, Deque, Optional
+from typing import Awaitable, Callable, Deque, Dict
 
 from fastapi import HTTPException, Request, status
 from app.core.config import Settings
@@ -11,23 +11,30 @@ from app.core.metrics import inc_rate_limited
 
 class RateLimiter:
     def __init__(self, rps: int) -> None:
-        self.rps = rps
-        self.calls: Deque[float] = deque()
+        self.rps = max(1, rps)
+        self.calls: Dict[str, Deque[float]] = {}
 
-    def _check(self) -> None:
+    def _bucket(self, request: Request) -> str:
+        ip = request.client.host if request.client else "?"
+        path = request.url.path
+        return f"{ip}:{path}"
+
+    def _check(self, request: Request) -> None:
+        bucket = self._bucket(request)
+        dq = self.calls.setdefault(bucket, deque())
         now = monotonic()
-        while self.calls and now - self.calls[0] > 1:
-            self.calls.popleft()
-        if len(self.calls) >= self.rps:
+        while dq and now - dq[0] > 1:
+            dq.popleft()
+        if len(dq) >= self.rps:
             try:
                 inc_rate_limited()
             except Exception:
                 pass
             raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS)
-        self.calls.append(now)
+        dq.append(now)
 
     async def __call__(self, request: Request, call_next):
-        self._check()
+        self._check(request)
         return await call_next(request)
 
 
@@ -44,11 +51,11 @@ def rate_limit_middleware(rps: int) -> RateLimiter:
     return RateLimiter(rps)
 
 
-def limit_dependency(rps: int) -> Callable[[], Awaitable[None]]:
+def limit_dependency(rps: int) -> Callable[[Request], Awaitable[None]]:
     limiter = RateLimiter(rps)
 
-    async def dependency() -> None:
-        limiter._check()
+    async def dependency(request: Request) -> None:
+        limiter._check(request)
 
     return dependency
 
@@ -59,7 +66,7 @@ class RedisRateLimiter:
         self.client = client
 
     def _key(self, request: Request) -> str:
-        ip = (request.client.host if request.client else "?")
+        ip = request.client.host if request.client else "?"
         path = request.url.path
         return f"ivy:rl:{path}:{ip}"
 

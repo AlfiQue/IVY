@@ -1,0 +1,24 @@
+{"timestamp": "2025-09-29 18:50:15,052", "level": "INFO", "category": "server", "message": "Job e96575512f40 echec, retry dans 5s: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:50:16,064", "level": "INFO", "category": "server", "message": "Job e96575512f40 echec, retry dans 15s: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:50:47,542", "level": "INFO", "category": "server", "message": "Job 912675d2dd8c echec, retry dans 0s: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:50:47,547", "level": "INFO", "category": "server", "message": "Job 912675d2dd8c echec, retry dans 0s: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:50:47,552", "level": "INFO", "category": "server", "message": "Job 912675d2dd8c echec, retry dans 0s: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:50:47,557", "level": "INFO", "category": "server", "message": "Job 912675d2dd8c FAILED apres retries: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:50:48,543", "level": "INFO", "category": "server", "message": "Job 912675d2dd8c FAILED apres retries: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:53:04,028", "level": "INFO", "category": "server", "message": "Job fa5467cdbd72 echec, retry dans 0s: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:53:04,032", "level": "INFO", "category": "server", "message": "Job fa5467cdbd72 echec, retry dans 0s: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:53:04,037", "level": "INFO", "category": "server", "message": "Job fa5467cdbd72 echec, retry dans 0s: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:53:04,043", "level": "INFO", "category": "server", "message": "Job fa5467cdbd72 FAILED apres retries: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:53:05,037", "level": "INFO", "category": "server", "message": "Job fa5467cdbd72 FAILED apres retries: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:53:16,650", "level": "INFO", "category": "server", "message": "Job bb7d5e8f968f echec, retry dans 0s: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:53:16,655", "level": "INFO", "category": "server", "message": "Job bb7d5e8f968f echec, retry dans 0s: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:53:16,661", "level": "INFO", "category": "server", "message": "Job bb7d5e8f968f echec, retry dans 0s: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:53:16,666", "level": "INFO", "category": "server", "message": "Job bb7d5e8f968f FAILED apres retries: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:55:47,526", "level": "INFO", "category": "server", "message": "Job 4a35753d1b4a echec, retry dans 0s: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:55:47,531", "level": "INFO", "category": "server", "message": "Job 4a35753d1b4a echec, retry dans 0s: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:55:47,536", "level": "INFO", "category": "server", "message": "Job 4a35753d1b4a echec, retry dans 0s: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:55:47,541", "level": "INFO", "category": "server", "message": "Job 4a35753d1b4a FAILED apres retries: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:55:52,004", "level": "INFO", "category": "server", "message": "Job 8979d14595d2 echec, retry dans 0s: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:55:52,009", "level": "INFO", "category": "server", "message": "Job 8979d14595d2 echec, retry dans 0s: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:55:52,015", "level": "INFO", "category": "server", "message": "Job 8979d14595d2 echec, retry dans 0s: boom", "trace_id": null}
+{"timestamp": "2025-09-29 18:55:52,019", "level": "INFO", "category": "server", "message": "Job 8979d14595d2 FAILED apres retries: boom", "trace_id": null}

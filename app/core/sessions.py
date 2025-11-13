@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Dict, List
+from typing import Dict, List, Optional
 from uuid import uuid4
 
 
@@ -23,10 +23,19 @@ def _now_iso() -> str:
 
 
 def create_session(client: str) -> Session:
-    sid = uuid4().hex[:12]
-    s = Session(id=sid, client=client, start_ts=_now_iso(), last_activity=_now_iso(), active=True)
-    _SESSIONS[sid] = s
-    return s
+    sid = uuid4().hex
+    session = Session(id=sid, client=client, start_ts=_now_iso(), last_activity=_now_iso(), active=True)
+    _SESSIONS[sid] = session
+    return session
+
+
+def get(session_id: str) -> Optional[Session]:
+    return _SESSIONS.get(session_id)
+
+
+def is_active(session_id: str) -> bool:
+    session = _SESSIONS.get(session_id)
+    return bool(session and session.active)
 
 
 def list_active() -> List[dict]:
@@ -34,16 +43,19 @@ def list_active() -> List[dict]:
 
 
 def terminate(session_id: str) -> bool:
-    s = _SESSIONS.get(session_id)
-    if not s:
+    session = _SESSIONS.get(session_id)
+    if not session:
         return False
-    s.active = False
-    s.last_activity = _now_iso()
+    session.active = False
+    session.last_activity = _now_iso()
     return True
 
 
-def touch(session_id: str) -> None:
-    s = _SESSIONS.get(session_id)
-    if s and s.active:
-        s.last_activity = _now_iso()
+def drop(session_id: str) -> None:
+    _SESSIONS.pop(session_id, None)
 
+
+def touch(session_id: str) -> None:
+    session = _SESSIONS.get(session_id)
+    if session and session.active:
+        session.last_activity = _now_iso()

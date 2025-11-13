@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-from pathlib import Path
+﻿from __future__ import annotations
 
 from typer.testing import CliRunner
 
@@ -13,17 +11,10 @@ runner = CliRunner()
 def test_cli_help():
     result = runner.invoke(cli_module.cli, ["--help"])
     assert result.exit_code == 0
-    assert "serve" in result.output and "plugin" in result.output
+    assert "serve" in result.output and "task" in result.output
 
 
-def test_cli_scaffold_plugin(tmp_path: Path, monkeypatch):
-    out_dir = tmp_path / "plugins"
-    result = runner.invoke(cli_module.cli, ["plugin", "scaffold", "demo", "--dir", str(out_dir)])
-    assert result.exit_code == 0
-    assert (out_dir / "demo" / "plugin.py").exists()
-
-
-def test_cli_task_get_and_cancel_parsing():
+def test_cli_task_commands_parse():
     res_get = runner.invoke(cli_module.cli, ["task", "get", "nonexistent"])
     assert res_get.exit_code == 0
     res_cancel = runner.invoke(cli_module.cli, ["task", "cancel", "nonexistent"])

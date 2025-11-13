@@ -63,7 +63,7 @@ class _Embedder:
         self._model = None
         self.dim = 384  # fallback dimension
         if SentenceTransformer is not None:
-            try:  # éviter les téléchargements si offline
+            try:  # Ã©viter les tÃ©lÃ©chargements si offline
                 self._model = SentenceTransformer("BAAI/bge-m3")
                 # estime la dimension
                 emb = self._model.encode(["test"], normalize_embeddings=False)
@@ -75,7 +75,7 @@ class _Embedder:
         if self._model is not None:
             arr = self._model.encode(texts, normalize_embeddings=False)
             return np.asarray(arr, dtype=np.float32)
-        # Fallback déterministe: hashing -> proj. simple
+        # Fallback dÃ©terministe: hashing -> proj. simple
         rng = np.random.default_rng(0)
         basis = rng.standard_normal((self.dim, 256), dtype=np.float32)
         vecs = []
@@ -125,7 +125,9 @@ class _Index:
         if faiss is not None and self.faiss_index is not None:
             scores, ids = self.faiss_index.search(q, top_k)
             return scores[0], ids[0]
-        mat = self._matrix or np.zeros((0, self.dim), dtype=np.float32)
+        mat = self._matrix
+        if mat is None:
+            mat = np.zeros((0, self.dim), dtype=np.float32)
         if mat.shape[0] == 0:
             return np.array([], dtype=np.float32), np.array([], dtype=np.int64)
         sims = (mat @ q[0])
@@ -137,7 +139,10 @@ class _Index:
         if faiss is not None and self.faiss_index is not None:
             faiss.write_index(self.faiss_index, str(self.path / "index.faiss"))
         else:
-            np.save(self.path / "index.npy", self._matrix or np.zeros((0, self.dim), dtype=np.float32))
+            matrix = self._matrix
+            if matrix is None:
+                matrix = np.zeros((0, self.dim), dtype=np.float32)
+            np.save(self.path / "index.npy", matrix)
 
 
 class RAGEngine:
@@ -177,7 +182,7 @@ class RAGEngine:
         return ""
 
     def _extract_pdf_text(self, path: Path) -> str:
-        # Tentatives d'extraction texte PDF si dépendances dispo
+        # Tentatives d'extraction texte PDF si dÃ©pendances dispo
         try:
             import PyPDF2  # type: ignore
 
@@ -217,7 +222,7 @@ class RAGEngine:
 
     def _parse_ocr_langs(self) -> list[str]:
         raw = (self.settings.rag_ocr_lang or "fra").strip()
-        # supporte séparateurs '+', ',' et espaces
+        # supporte sÃ©parateurs '+', ',' et espaces
         langs = [p for p in re.split(r"[+,\s]+", raw) if p]
         return langs or ["fra"]
 
@@ -266,6 +271,15 @@ class RAGEngine:
         return any(m.get("doc_sha256") == sha for m in self.meta)
 
     def _add_document(self, path: Path, force: bool = False) -> int:
+        try:
+            stat = path.stat()
+        except OSError:
+            return 0
+        max_mb = max(0, int(getattr(self.settings, "rag_max_file_mb", 0)))
+        if max_mb:
+            limit_bytes = max_mb * 1024 * 1024
+            if stat.st_size > limit_bytes:
+                return 0
         sha = _sha256_file(path)
         if not force and self._already_indexed(sha):
             return 0
@@ -276,7 +290,6 @@ class RAGEngine:
         vectors = self.embedder.encode([c[2] for c in chunks])
         self.index.add(vectors)
         added = 0
-        stat = path.stat()
         for i, (s, e, ch) in enumerate(chunks):
             self.meta.append(
                 {
@@ -323,7 +336,7 @@ class RAGEngine:
         self.index.save()
         self.meta_path.write_text(json.dumps(self.meta, ensure_ascii=False), encoding="utf-8")
 
-    # ----- Requête -----
+    # ----- RequÃªte -----
     def query(self, text: str, top_k: int = 5) -> List[dict[str, Any]]:
         if not self.meta:
             return []
@@ -350,8 +363,8 @@ class RAGEngine:
             )
         return results
 
-    # ----- Watcher (optionnel, non activé par défaut) -----
-    def start_watchers(self) -> None:  # pragma: no cover - délicat en CI
+    # ----- Watcher (optionnel, non activÃ© par dÃ©faut) -----
+    def start_watchers(self) -> None:  # pragma: no cover - dÃ©licat en CI
         try:
             from watchdog.observers import Observer  # type: ignore
             from watchdog.events import FileSystemEventHandler  # type: ignore
@@ -378,7 +391,7 @@ class RAGEngine:
         except Exception:
             pass
 
-    def stop_watchers(self) -> None:  # pragma: no cover - délicat en CI
+    def stop_watchers(self) -> None:  # pragma: no cover - dÃ©licat en CI
         observer = getattr(self, "_observer", None)
         try:
             if observer is not None:
@@ -412,3 +425,6 @@ class RAGEngine:
                 sched.shutdown(wait=False)
         except Exception:
             pass
+
+
+

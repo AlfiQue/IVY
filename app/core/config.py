@@ -1,4 +1,4 @@
-"""Configuration unifiée de l'application."""
+﻿"""Configuration unifiée de l'application."""
 
 from __future__ import annotations
 
@@ -6,23 +6,24 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Parametres de l'application (serveur, logs, DB)."""
+    """Paramètres de l'application (serveur, logs, base de données)."""
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     # Réseau / serveur
     host: str = "127.0.0.1"
     port: int = 8000
-    cors_origins: list[str] = ["*"]
+    cors_origins: list[str] = Field(default_factory=lambda: ["*"])
 
     # Limites et sécurité
     rate_limit_rps: int = 10
-    allowlist_domains: list[str] = []
-    allowlist_ports: list[int] = [80, 443]
+    allowlist_domains: list[str] = Field(default_factory=lambda: ["open-meteo.com", "duckduckgo.com"])
+    allowlist_ports: list[int] = Field(default_factory=lambda: [80, 443])
     jwt_secret: str = "CHANGE_ME"
     reset_admin_flag: str = "app/data/reset_admin.flag"
 
@@ -47,7 +48,7 @@ class Settings(BaseSettings):
     rag_max_file_mb: int = 50
     rag_index_timeout_sec: int = 120
 
-    # Historique / logs
+    # Historique / logs applicatifs
     history_retention_days: int = 30
     history_max_mb: int = 200
     mask_secrets_patterns: str = "api_key,token,authorization,password"
@@ -59,11 +60,37 @@ class Settings(BaseSettings):
     # WebSocket
     ws_heartbeat_sec: int = 15
     ws_auth_required: bool = False
-    ws_auth_required: bool = False
 
     # LLM limites
     llm_max_input_tokens: int = 8000
     llm_max_output_tokens: int = 1024
+    # Chat / recherche
+    chat_system_prompt: str = "Tu es IVY, assistant local."
+    chat_history_max_messages: int = 10
+    qa_similarity_threshold: float = 0.9
+    embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+
+    # Recherche web
+    duckduckgo_safe_search: str = "moderate"
+    duckduckgo_region: str = "wt-wt"
+    duckduckgo_max_results: int = 5
+
+    # LLM
+    llm_temperature: float = 0.7
+    llm_provider: str = "llama_cpp"
+    llm_model_path: str | None = None
+    llm_context_tokens: int = 8192
+    llm_n_gpu_layers: int = 0
+    tensorrt_llm_base_url: str = "http://127.0.0.1:8000"
+    tensorrt_llm_chat_endpoint: str = "/v1/chat/completions"
+    tensorrt_llm_model: str | None = None
+    tensorrt_llm_api_key: str | None = None
+    tensorrt_llm_extra_headers: dict[str, str] = Field(default_factory=dict)
+
+    # Cookies / sessions
+    cookie_secure: bool = False
+    cookie_samesite: str = "lax"
+    csrf_max_age_seconds: int = 3600
 
     # Scheduler
     scheduler_tz: str = "Europe/Paris"
@@ -75,10 +102,13 @@ class Settings(BaseSettings):
     # Plugins sandbox
     plugin_sandbox_enabled: bool = True
     plugin_hard_kill_grace_sec: int = 2
-    plugin_sandbox_nosandbox: list[str] = ["tasks", "llm", "system_info"]
+    plugin_sandbox_nosandbox: list[str] = Field(default_factory=lambda: ["tasks", "llm", "system_info"])
 
     # Observabilité
     enable_metrics: bool = False
+
+    # Debug / Dev
+    disable_auth: bool = False
 
     @classmethod
     def settings_customise_sources(
@@ -99,11 +129,11 @@ class Settings(BaseSettings):
 
     @staticmethod
     def json_config_settings_source() -> dict[str, object]:
-        """Charge depuis ``config.json`` à la racine si présent."""
+        """Charge la configuration depuis ``config.json`` à la racine si présent."""
         config_path = Path(__file__).resolve().parents[2] / "config.json"
         if config_path.is_file():
             try:
-                return json.loads(config_path.read_text())
+                return json.loads(config_path.read_text(encoding="utf-8"))
             except ValueError:
                 return {}
         return {}
@@ -113,3 +143,7 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Retourne une instance de :class:`Settings` mise en cache."""
     return Settings()
+
+
+
+

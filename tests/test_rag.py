@@ -24,15 +24,17 @@ class DummyEmbedder:
         return np.vstack(arr)
 
 
-def _engine(tmp_path: Path, monkeypatch) -> rag_module.RAGEngine:
-    s = Settings(
-        rag_inbox_dir=str(tmp_path / "inbox"),
-        rag_knowledge_dir=str(tmp_path / "knowledge"),
-        rag_index_dir=str(tmp_path / "index"),
-        rag_chunk_size=50,
-        rag_chunk_overlap=10,
-        rag_enable_ocr=True,
-    )
+def _engine(tmp_path: Path, monkeypatch, **overrides) -> rag_module.RAGEngine:
+    config = {
+        "rag_inbox_dir": str(tmp_path / "inbox"),
+        "rag_knowledge_dir": str(tmp_path / "knowledge"),
+        "rag_index_dir": str(tmp_path / "index"),
+        "rag_chunk_size": 50,
+        "rag_chunk_overlap": 10,
+        "rag_enable_ocr": True,
+    }
+    config.update(overrides)
+    s = Settings(**config)
     monkeypatch.setattr(rag_module, "_Embedder", lambda: DummyEmbedder())
     return rag_module.RAGEngine(s)
 
@@ -41,26 +43,24 @@ def test_reindex_and_query(tmp_path: Path, monkeypatch) -> None:
     eng = _engine(tmp_path, monkeypatch)
     txt = eng.paths.knowledge / "note.txt"
     eng.paths.knowledge.mkdir(parents=True, exist_ok=True)
-    txt.write_text("Bonjour Paris. La météo est clémente aujourd'hui.")
+    txt.write_text("Bonjour Paris. La meteo est clemente aujourd'hui.")
 
     count = eng.reindex(full=True)
     assert count > 0
     assert (eng.paths.index_dir / "index.npy").exists() or (eng.paths.index_dir / "index.faiss").exists()
     assert (eng.paths.index_dir / "meta.json").exists()
 
-    res = eng.query("météo Paris", top_k=3)
+    res = eng.query("meteo Paris", top_k=3)
     assert isinstance(res, list)
     assert res and "source" in res[0] and "text" in res[0]
 
 
 def test_pdf_scanned_vs_text(tmp_path: Path, monkeypatch) -> None:
     eng = _engine(tmp_path, monkeypatch)
-    # simuler PDF
     pdf = eng.paths.inbox / "doc.pdf"
     eng.paths.inbox.mkdir(parents=True, exist_ok=True)
     pdf.write_bytes(b"%PDF-1.4 mock")
 
-    # forcer extraction texte PDF vide et OCR renvoyant un contenu
     monkeypatch.setattr(eng, "_extract_pdf_text", lambda p: "")
     monkeypatch.setattr(eng, "_extract_pdf_ocr", lambda p: "Texte OCR scanne")
 
@@ -84,4 +84,16 @@ def test_watcher_like_addition(tmp_path: Path, monkeypatch) -> None:
     assert added > 0
     res = eng.query("epsilon", top_k=2)
     assert res and any("epsilon" in r["text"] for r in res)
+
+
+def test_large_file_skipped_by_limit(tmp_path: Path, monkeypatch) -> None:
+    eng = _engine(tmp_path, monkeypatch, rag_max_file_mb=1)
+    big = eng.paths.knowledge / "big.txt"
+    big.parent.mkdir(parents=True, exist_ok=True)
+    big.write_bytes(b"X" * (1 * 1024 * 1024 + 2048))
+
+    added = eng._add_document(big, force=False)
+    assert added == 0
+    assert eng.meta == []
+    assert eng.reindex(full=True) == 0
 

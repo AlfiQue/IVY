@@ -4,38 +4,67 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import WebSocket
+from starlette.websockets import WebSocketState
+from app.core.llm import LLMClient, build_chat_messages
 from app.core.trace import get_trace_id
 
 
 async def stream(
     websocket: WebSocket, prompt: str, options: dict[str, Any] | None = None
 ) -> None:
-    """Diffuse les tokens générés pour ``prompt`` en temps réel."""
+    """Diffuse une reponse LLM via WebSocket."""
     await websocket.accept()
+    req_id = None
+    source = "llm"
     try:
-        import os
+        opts = dict(options or {})
+        temperature = opts.pop("temperature", None)
+        max_tokens = opts.pop("max_tokens", None)
+        system_prompt = opts.pop("system", None)
+        raw_history = opts.pop("history", None)
 
-        from .llm import (  # import local pour éviter une dépendance coûteuse au chargement
-            LLM,
+        history: list[tuple[str, str]] | None = None
+        if isinstance(raw_history, list):
+            history_items: list[tuple[str, str]] = []
+            for item in raw_history:
+                if isinstance(item, dict):
+                    role = str(item.get("role", "user"))
+                    content = str(item.get("content", ""))
+                    history_items.append((role, content))
+                elif isinstance(item, (tuple, list)) and len(item) >= 2:
+                    history_items.append((str(item[0]), str(item[1])))
+            history = history_items or None
+
+        messages = build_chat_messages(system=system_prompt, history=history, prompt=prompt)
+        client = LLMClient()
+        result = await client.chat(
+            messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            extra_options=opts or None,
         )
-
-        model_path = os.environ.get("LLM_MODEL_PATH")
-        if model_path is None:
-            # Impossible de générer sans modèle ; on coupe la connexion.
+        text = result.get("text", "")
+        provider = result.get("provider", source)
+        if text:
+            await send_token(websocket, req_id, provider, text)
+        await close_connection(websocket, req_id, provider)
+    except Exception as exc:  # pragma: no cover - WebSocket runtime path
+        await send_error(
+            websocket,
+            req_id,
+            source,
+            str(exc),
+            code="IVY_WS_LLM_ERROR",
+        )
+        try:
             await websocket.close(code=1011)
-            return
-
-        llm = LLM(model_path)
-        async for token in llm.astream(prompt, options):
-            await websocket.send_text(token)
-    finally:
-        await websocket.close()
-
+        except RuntimeError:
+            pass
 
 def serialize_event(
     req_id: str | None, source: str, event: str, payload: Any
 ) -> dict[str, Any]:
-    """Sérialise un événement WebSocket au format commun."""
+    """SÃ©rialise un Ã©vÃ©nement WebSocket au format commun."""
     return {
         "type": "event",
         "req_id": req_id,
@@ -46,6 +75,15 @@ def serialize_event(
     }
 
 
+async def _send_json_safe(websocket: WebSocket, data: dict[str, Any]) -> None:
+    state = getattr(websocket, 'application_state', None)
+    if state is not None and state is not WebSocketState.CONNECTED:
+        return
+    try:
+        await websocket.send_json(data)
+    except RuntimeError:
+        pass
+
 async def send_event(
     websocket: WebSocket,
     req_id: str | None,
@@ -53,14 +91,14 @@ async def send_event(
     event: str,
     payload: Any,
 ) -> None:
-    """Envoie un événement générique sur la connexion WebSocket."""
-    await websocket.send_json(serialize_event(req_id, source, event, payload))
+    """Envoie un Ã©vÃ©nement gÃ©nÃ©rique sur la connexion WebSocket."""
+    await _send_json_safe(websocket, serialize_event(req_id, source, event, payload))
 
 
 async def send_token(
     websocket: WebSocket, req_id: str | None, source: str, token: str
 ) -> None:
-    """Envoie un jeton généré."""
+    """Envoie un jeton gÃ©nÃ©rÃ©."""
     await send_event(websocket, req_id, source, "token", token)
 
 
@@ -73,7 +111,8 @@ async def send_error(
     details: object | None = None,
 ) -> None:
     """Envoie un message d'erreur (schéma classique + trace_id)."""
-    await websocket.send_json(
+    await _send_json_safe(
+        websocket,
         {
             "type": "error",
             "req_id": req_id,
@@ -83,9 +122,8 @@ async def send_error(
             "trace_id": get_trace_id(),
             "ts": datetime.now(timezone.utc).isoformat(),
             **({"details": details} if details is not None else {}),
-        }
+        },
     )
-
 
 async def send_status(
     websocket: WebSocket, req_id: str | None, source: str, status: Any
@@ -102,4 +140,9 @@ async def close_connection(
 ) -> None:
     """Envoie l'événement de fin puis ferme la connexion."""
     await send_event(websocket, req_id, source, "end", None)
-    await websocket.close(code=code)
+    try:
+        await websocket.close(code=code)
+    except RuntimeError:
+        pass
+
+

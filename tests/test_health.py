@@ -17,8 +17,8 @@ async def test_health_endpoint_returns_ok() -> None:
 
     assert response.status_code == 200
     data = response.json()
-    expected = {"status", "version", "time", "gpu", "plugins_count", "db_ok", "faiss_ok"}
+    expected = {"status", "version", "time", "gpu", "conversations_total", "qa_total", "db_ok", "faiss_ok"}
     assert expected <= data.keys()
     assert data["db_ok"] is True
     assert data["faiss_ok"] is True
-    assert isinstance(data["plugins_count"], int)
+    assert isinstance(data["conversations_total"], int) and isinstance(data["qa_total"], int)

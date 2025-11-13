@@ -3,7 +3,7 @@
 import json
 import logging
 import secrets
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -12,13 +12,35 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
+try:
+    import bcrypt as _bcrypt  # type: ignore
+    if not hasattr(_bcrypt, '__about__'):
+        class _About:
+            __slots__ = ('__version__',)
+
+            def __init__(self, version: str) -> None:
+                self.__version__ = version
+
+        version = getattr(_bcrypt, '__version__', 'unknown')
+        _bcrypt.__about__ = _About(str(version))  # type: ignore[attr-defined]
+except Exception:
+    pass
+
 from app.core.config import get_settings
 from app.core.metrics import inc_auth_error
+from app.core import apikeys, sessions as sessions_module
 
 
 audit_logger = logging.getLogger("audit")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def _auth_disabled() -> bool:
+    try:
+        settings = get_settings()
+    except Exception:
+        return False
+    return bool(getattr(settings, 'disable_auth', False))
 
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_HOURS = 12
@@ -26,18 +48,35 @@ JWT_EXPIRE_HOURS = 12
 
 # ----- Password utils -----
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    try:
+        return pwd_context.hash(password)
+    except ValueError as exc:
+        if 'longer than 72 bytes' not in str(exc):
+            raise
+        import bcrypt as _bcrypt  # type: ignore
+
+        return _bcrypt.hashpw(password.encode('utf-8'), _bcrypt.gensalt()).decode('utf-8')
 
 
 def verify_password(password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(password, hashed_password)
+    try:
+        return pwd_context.verify(password, hashed_password)
+    except ValueError as exc:
+        if 'longer than 72 bytes' not in str(exc):
+            raise
+        import bcrypt as _bcrypt  # type: ignore
+
+        try:
+            return _bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
+        except AttributeError:
+            return False
 
 
 def regenerate_password(password: str, source: str) -> str:
     hashed = hash_password(password)
     audit_logger.info(
-        "Mot de passe rǸgǸnǸrǸ",
-        extra={"timestamp": datetime.utcnow().isoformat(), "source": source},
+        "Mot de passe régénéré",
+        extra={"timestamp": datetime.now(UTC).isoformat(), "source": source},
     )
     return hashed
 
@@ -45,7 +84,7 @@ def regenerate_password(password: str, source: str) -> str:
 # ----- JWT utils -----
 def create_jwt(subject: str, *, hours: int = JWT_EXPIRE_HOURS) -> str:
     settings = get_settings()
-    expire = datetime.utcnow() + timedelta(hours=hours)
+    expire = datetime.now(UTC) + timedelta(hours=hours)
     to_encode = {"sub": subject, "exp": expire}
     return jwt.encode(to_encode, settings.jwt_secret, algorithm=JWT_ALGORITHM)
 
@@ -74,23 +113,39 @@ def generate_csrf_token(secret_key: str, user_id: str) -> str:
     return serializer.dumps(user_id)
 
 
-def validate_csrf_token(secret_key: str, token: str, max_age: int = 3600) -> bool:
+def validate_csrf_token(secret_key: str, token: str, max_age: int = 3600) -> str | None:
     serializer = URLSafeTimedSerializer(secret_key)
     try:
-        serializer.loads(token, max_age=max_age)
-        return True
+        return serializer.loads(token, max_age=max_age)
     except (BadSignature, SignatureExpired):
-        return False
+        return None
 
 
-async def csrf_protect(csrf: str | None = Header(default=None, alias="X-CSRF-Token")) -> None:
+async def csrf_protect(request: Request, csrf: str | None = Header(default=None, alias="X-CSRF-Token")) -> None:
+    if _auth_disabled():
+        return None
     settings = get_settings()
-    if not csrf or not validate_csrf_token(settings.jwt_secret, csrf):
+    if not csrf:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF invalide")
-
+    max_age = getattr(settings, "csrf_max_age_seconds", 3600)
+    session_id = validate_csrf_token(settings.jwt_secret, csrf, max_age=max_age)
+    if session_id is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF invalide")
+    cookie_sid = request.cookies.get("session_id") if request.cookies else None
+    if not cookie_sid or cookie_sid != session_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF invalide")
+    if not sessions_module.is_active(cookie_sid):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF invalide")
+    try:
+        sessions_module.touch(cookie_sid)
+    except Exception:
+        pass
 
 async def require_jwt(request: Request) -> None:
-    """Dépendance FastAPI: exige un cookie JWT valide (admin)."""
+    """Dependance FastAPI: exige un cookie JWT valide (admin)."""
+    if _auth_disabled():
+        request.state.user = getattr(request.state, 'user', {"sub": "debug"})
+        return None
     token = request.cookies.get("access_token") if request.cookies else None
     if not token:
         try:
@@ -106,6 +161,36 @@ async def require_jwt(request: Request) -> None:
             pass
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"error": {"code": "IVY_4010", "message": "unauthorized"}})
 
+async def require_jwt_or_api_key(request: Request, scopes: list[str] | None = None) -> None:
+    """Autorise soit un cookie JWT admin, soit un header Bearer API key.
+
+    - Header: Authorization: Bearer <API_KEY>
+    - Cookie: access_token (JWT admin)
+    """
+    if _auth_disabled():
+        request.state.user = getattr(request.state, 'user', {"sub": "debug"})
+        return None
+    auth = request.headers.get("authorization") or request.headers.get("Authorization")
+    if auth and auth.lower().startswith("bearer "):
+        token = auth.split(" ", 1)[1].strip()
+        info = apikeys.verify_token(token, scopes)
+        if info:
+            request.state.user = info
+            return None
+    token = request.cookies.get("access_token") if request.cookies else None
+    if not token:
+        try:
+            inc_auth_error()
+        except Exception:
+            pass
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"error": {"code": "IVY_4010", "message": "unauthorized"}})
+    payload = verify_jwt(token)
+    if not isinstance(payload, dict) or not payload.get("sub"):
+        try:
+            inc_auth_error()
+        except Exception:
+            pass
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"error": {"code": "IVY_4010", "message": "unauthorized"}})
 
 # ----- Admin account management -----
 def _admin_file() -> Path:
@@ -114,7 +199,7 @@ def _admin_file() -> Path:
 
 def _load_admin_hash() -> str | None:
     try:
-        data = json.loads(_admin_file().read_text())
+        data = json.loads(_admin_file().read_text(encoding='utf-8-sig'))
         return data.get("password_hash")
     except Exception:
         return None
@@ -122,7 +207,7 @@ def _load_admin_hash() -> str | None:
 
 def _save_admin_hash(hash_value: str) -> None:
     _admin_file().parent.mkdir(parents=True, exist_ok=True)
-    _admin_file().write_text(json.dumps({"password_hash": hash_value}, ensure_ascii=False))
+    _admin_file().write_text(json.dumps({"password_hash": hash_value}, ensure_ascii=False), encoding='utf-8')
 
 
 def maybe_reset_admin() -> str | None:
@@ -137,16 +222,19 @@ def maybe_reset_admin() -> str | None:
     finally:
         pass
     audit_logger.info(
-        "Reset admin demand",
-        extra={"timestamp": datetime.utcnow().isoformat(), "action": "reset_admin"},
+        "Reset admin demande",
+        extra={"timestamp": datetime.now(UTC).isoformat(), "action": "reset_admin"},
     )
-    print(f"[RESET-ADMIN] Nouveau Mot de passe rǸgǸnǸrǸre: {temp_password}")
+    print(f"[RESET-ADMIN] Nouveau mot de passe genere: {temp_password}")
     return temp_password
 
 
 # ----- Middleware -----
 def attach_user_middleware():
     async def middleware(request: Request, call_next):
+        if _auth_disabled():
+            request.state.user = getattr(request.state, 'user', {"sub": "debug"})
+            return await call_next(request)
         token = request.cookies.get("access_token")
         if token:
             payload = verify_jwt(token)
@@ -156,6 +244,10 @@ def attach_user_middleware():
         return await call_next(request)
 
     return middleware
+
+
+
+
 
 
 

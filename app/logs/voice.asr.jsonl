@@ -1,0 +1,6 @@
+{"timestamp": "2025-11-13 20:11:52,896", "level": "INFO", "category": "voice.asr", "message": "Voice stream opened from Address(host='127.0.0.1', port=11780)", "trace_id": null}
+{"timestamp": "2025-11-13 20:11:54,026", "level": "INFO", "category": "voice.asr", "message": "Voice stream END marker after 36 frames (28.12 KB)", "trace_id": null}
+{"timestamp": "2025-11-13 20:12:02,821", "level": "INFO", "category": "voice.asr", "message": "ASR final transcript (17 chars)", "trace_id": null}
+{"timestamp": "2025-11-13 20:12:28,166", "level": "INFO", "category": "voice.asr", "message": "Voice stream opened from Address(host='127.0.0.1', port=11795)", "trace_id": null}
+{"timestamp": "2025-11-13 20:12:29,484", "level": "INFO", "category": "voice.asr", "message": "Voice stream END marker after 48 frames (37.50 KB)", "trace_id": null}
+{"timestamp": "2025-11-13 20:12:34,530", "level": "INFO", "category": "voice.asr", "message": "ASR final transcript (13 chars)", "trace_id": null}

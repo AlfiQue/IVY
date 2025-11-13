@@ -1,65 +1,56 @@
-# API
+﻿# API
 
-Authentification
-- Login: `POST /auth/login` → cookie `access_token` (JWT) + JSON `{ csrf_token, session_id }`.
-- Logout: `POST /auth/logout`
-- CSRF: inclure `X‑CSRF‑Token` pour POST/PUT/DELETE.
+## Authentification
+- `POST /auth/login` -> cookie `access_token` + JSON `{ csrf_token, session_id }`.
+- `POST /auth/logout`
+- Les requetes mutatives doivent inclure `X-CSRF-Token`.
+- Les clients externes peuvent utiliser les API keys (`Authorization: Bearer <KEY>`), scopes disponibles : `chat`, `memory`, `debug`, `jobs`, `history`, `rag`, `backup`, `config`.
 
-Santé
-- `GET /health` → `{ status, version, time, gpu, plugins_count, db_ok, faiss_ok }`
+## Chat & Memoire
+- `POST /chat/query { question, conversation_id? }` -> `{ conversation_id, origin, answer, question_message, answer_message, ... }`
+- `GET /chat/conversations` / `POST` / `PATCH` / `DELETE`
+- `GET /chat/conversations/{id}/messages`
+- `GET /memory/qa` (pagination, recherche plein texte)
+- `PATCH /memory/qa/{id}` / `DELETE`
+- `POST /memory/qa/{id}/classify/llm|heuristic` (retourne la classification et, si update_flag=true, la fiche QA mise a jour)
+- `POST /memory/qa/import` / `GET /memory/qa/export`
 
-Plugins
-- `GET /plugins` → `{ plugins: [{ name, state, meta }] }`
-- `POST /plugins/{name}/enable|disable|start|stop|reload`
-- `DELETE /plugins/{name}`
-- `POST /plugins/upload` (multipart ZIP)
+## Recherche Web
+- `GET /debug/search?q=...` -> résultats DuckDuckGo (texte/titres/liens).
 
-LLM
-- `POST /llm/infer` → `{ text }` (non stream)
-- `WS /llm/stream` (voir schéma WS ci‑dessous)
+## Jeedom (placeholder)
+- `GET /jeedom/status` -> `{ configured: bool, base_url }`
 
-RAG
-- `POST /rag/reindex { full?:bool=true }` → `{ indexed }`
-- `POST /rag/query { query, top_k }` → `{ results: [{ text, score, source: { path, sha256, chunk_id, start, end } }] }`
+## Jobs / sauvegardes / RAG
+- `GET /jobs`, `POST /jobs/add`, `GET /jobs/{id}`, `POST /jobs/{id}/run-now`, `POST /jobs/{id}/update`, `POST /jobs/{id}/cancel`, `DELETE /jobs/{id}` (types supportes : `llm`, `backup`).
+- `GET /backup/export`, `POST /backup/import?dry_run=true|false`
+- `POST /rag/reindex`, `POST /rag/query`
 
-Historique
-- `POST /history/replay` (protégé CSRF)
+## Historique
+- `GET /history?limit=&offset=&q=&event_type=` -> `{ items, total }`
 
-Sessions
-- `GET /sessions` → `{ sessions: [{ id, client, start_ts, last_activity, active }] }`
-- `POST /sessions/{id}/terminate`
+## Sante
+- `GET /health` -> `{ status, version, time, gpu, conversations_total, qa_total, db_ok, faiss_ok, cpu_percent, mem_percent, ... }`
 
-Jobs
-- `GET /jobs` → liste
-- `POST /jobs/add` → `{ id }`
-- `GET /jobs/{id}` → détail (inclut `cancel_requested`)
-- `POST /jobs/{id}/run-now`, `POST /jobs/{id}/update`, `POST /jobs/{id}/cancel`, `DELETE /jobs/{id}`
+## WebSocket (LLM streaming)
+- Endpoint legacy conservé : `ws://<host>/llm/stream` avec messages `{ type, req_id, event, payload }`.
 
-Sauvegardes
-- `GET /backup/export` → ZIP (manifest/config/db/faiss/logs)
-- `POST /backup/import?dry_run=true|false` (multipart ZIP) → `{ version, plan, dry_run }`
-
-Schéma WebSocket (LLM)
-- Messages JSON: `{ type, req_id, source, event, payload, ts }`
-  - `type`: `event|error`
-  - `event`: `token|status|error|end`
-  - `payload`: texte ou info
-
-Exemples
-- cURL login:
+## Exemples
 ```
+# Connexion
 curl -s -X POST http://127.0.0.1:8000/auth/login -H 'Content-Type: application/json' -d '{"user":"admin","password":"admin"}' -c cookies.txt
-```
-- cURL enable plugin:
-```
-curl -s -X POST http://127.0.0.1:8000/plugins/tasks/enable -b cookies.txt -H "X-CSRF-Token: <token>"
-```
-- WS (JavaScript):
-```
-const ws = new WebSocket('ws://127.0.0.1:8000/llm/stream');
-ws.onopen = () => ws.send(JSON.stringify({type:'request',req_id:'1',source:'demo',event:'start',payload:{prompt:'Bonjour'},ts:Date.now()}));
-ws.onmessage = ev => console.log(JSON.parse(ev.data));
+
+# Requete chat
+curl -s -X POST http://127.0.0.1:8000/chat/query -H 'Content-Type: application/json' -H "X-CSRF-Token: <token>" -b cookies.txt -d '{"question":"Bonjour"}'
+
+# Liste memoire (API key scope memory)
+curl -s -H 'Authorization: Bearer <KEY>' http://127.0.0.1:8000/memory/qa
 ```
 
-Codes d’erreur
-- 400: requête invalide; 401: non authentifié; 403: CSRF invalide; 404: ressource introuvable; 429: rate‑limit.
+## Codes d'erreur
+- `400` : requete invalide
+- `401` : non authentifie / cle invalide
+- `403` : CSRF ou droits insuffisants
+- `404` : ressource introuvable
+- `429` : limite de requetes atteinte
+

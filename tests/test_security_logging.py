@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 import sys
 from pathlib import Path
 
@@ -14,3 +14,4 @@ def test_regenerate_password_creates_log(caplog):
         for record in caplog.records
     )
     assert any(hasattr(record, "timestamp") for record in caplog.records)
+

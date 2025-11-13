@@ -1,0 +1,16 @@
+{"timestamp": "2025-09-24 19:22:02,084", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": "a93f0459-5470-4097-ab60-0845235b36dd"}
+{"timestamp": "2025-09-24 19:22:02,138", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": "441b01c3-4cb6-4e91-84da-4207932ed66d"}
+{"timestamp": "2025-09-24 19:22:02,203", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": null}
+{"timestamp": "2025-09-24 19:31:47,580", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": null}
+{"timestamp": "2025-09-24 19:42:28,920", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": "21283a30-7331-4171-8a98-2c0d182409c6"}
+{"timestamp": "2025-09-24 19:42:28,971", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": "06fb3a25-0262-4b22-9902-732c9fb956ef"}
+{"timestamp": "2025-09-24 19:42:29,041", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": null}
+{"timestamp": "2025-09-24 20:22:54,976", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": "75de88cd-936a-464e-8ff9-9e20ee2f4a3a"}
+{"timestamp": "2025-09-24 20:22:55,032", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": "222f306e-92c5-4c18-8b7b-6881e42416c9"}
+{"timestamp": "2025-09-24 20:22:55,114", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": null}
+{"timestamp": "2025-09-24 20:23:18,627", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": "f626aeed-a5c6-41be-b25e-69afd290675a"}
+{"timestamp": "2025-09-24 20:23:18,658", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": "e1864dc1-84d6-4498-b98b-da046e2c8e01"}
+{"timestamp": "2025-09-24 20:23:18,731", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": null}
+{"timestamp": "2025-09-24 20:33:21,900", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": "39ff3204-00f2-492e-aeac-a7893b3fa76f"}
+{"timestamp": "2025-09-24 20:33:21,952", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": "e3d04538-b4c2-41fd-b79d-92343633b7e4"}
+{"timestamp": "2025-09-24 20:33:22,013", "level": "WARNING", "category": "llm", "message": "LLM plugin call blocked", "trace_id": null}

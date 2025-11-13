@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { api } from '../api/client'
 
 export default function BackupsPage() {
@@ -8,10 +8,10 @@ export default function BackupsPage() {
   const [downloading, setDownloading] = useState(false)
 
   async function exportNow() {
-    // crée un job backup à exécution immédiate
+    // Cree un job backup a execution immediate
     const { id } = await api.addJob({ type:'backup', params:{}, schedule:{ trigger:'date' } })
     await api.runJobNow(id)
-    setMsg('Export planifié. Consultez app/data/backups/')
+    setMsg('Export planifie. Consultez app/data/backups/')
   }
 
   async function downloadExport() {
@@ -22,7 +22,7 @@ export default function BackupsPage() {
       const a = document.createElement('a')
       a.href = url; a.download = 'ivy-backup.zip'; a.click()
       URL.revokeObjectURL(url)
-    } catch { setMsg('Échec export') } finally { setDownloading(false) }
+    } catch { setMsg('Echec export') } finally { setDownloading(false) }
   }
 
   return (
@@ -30,12 +30,12 @@ export default function BackupsPage() {
       <h2>Sauvegardes</h2>
       <div className="row">
         <button onClick={exportNow}>Exporter (via Job)</button>
-        <button onClick={downloadExport} disabled={downloading}>Télécharger export (ZIP)</button>
+        <button onClick={downloadExport} disabled={downloading}>Telecharger export (ZIP)</button>
       </div>
       {msg && <p>{msg}</p>}
       <h3>Importer</h3>
       <div className="row">
-        <input type="file" accept=".zip" onChange={e=>setFile(e.target.files?.[0]||null)} aria-label="ZIP à importer" />
+        <input type="file" accept=".zip" onChange={e=>setFile(e.target.files?.[0]||null)} aria-label="ZIP a importer" />
         <label><input type="checkbox" checked={dry} onChange={e=>setDry(e.target.checked)} /> Dry-run</label>
         <button onClick={async ()=>{ if(!file) return; const res = await api.importBackup(file, dry); setMsg(JSON.stringify(res)) }}>Importer</button>
       </div>

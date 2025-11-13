@@ -10,11 +10,20 @@ if ('serviceWorker' in navigator) {
   })
 }
 
+// Detect base path when served under /admin or /ui behind FastAPI
+const base = (() => {
+  try {
+    const p = window.location.pathname
+    if (p.startsWith('/admin')) return '/admin'
+    if (p.startsWith('/ui')) return '/ui'
+    return '/'
+  } catch { return '/' }
+})()
+
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename={base}>
       <App />
     </BrowserRouter>
   </React.StrictMode>
 )
-

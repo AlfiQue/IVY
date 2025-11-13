@@ -8,6 +8,7 @@ apscheduler
 numpy
 faiss-cpu
 sentence-transformers
+duckduckgo-search==5.3.0
 pytesseract
 python-docx
 openpyxl

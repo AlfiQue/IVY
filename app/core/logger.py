@@ -1,4 +1,4 @@
-﻿import json
+import json
 import logging
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
@@ -9,7 +9,6 @@ from app.core.trace import get_trace_id
 
 LOG_DIR: Final[Path] = Path(__file__).resolve().parent.parent / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
-
 PLUGIN_LOG_DIR: Final[Path] = LOG_DIR / "plugins"
 PLUGIN_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -19,7 +18,7 @@ LOG_RETENTION_DAYS: Final[int] = settings.log_retention_days
 
 
 class JsonFormatter(logging.Formatter):
-    """Formateur qui sÃ©rialise les entrÃ©es en JSON."""
+    """Formateur qui sérialise les entrées en JSON."""
 
     def format(self, record: logging.LogRecord) -> str:  # type: ignore[override]
         log_record = {
@@ -33,7 +32,7 @@ class JsonFormatter(logging.Formatter):
 
 
 class SizeAndTimeRotatingFileHandler(TimedRotatingFileHandler):
-    """Rotation basÃ©e sur la taille et le temps."""
+    """Rotation basée sur la taille et le temps."""
 
     def __init__(
         self,
@@ -61,7 +60,7 @@ class SizeAndTimeRotatingFileHandler(TimedRotatingFileHandler):
 
     def shouldRollover(self, record: logging.LogRecord) -> bool:  # type: ignore[override]
         if self.maxBytes > 0:
-            if self.stream is None:  # pragma: no cover - sÃ©curitÃ©
+            if self.stream is None:  # pragma: no cover - sécurité
                 self.stream = self._open()
             msg = f"{self.format(record)}\n"
             enc = self.encoding
@@ -74,7 +73,7 @@ class SizeAndTimeRotatingFileHandler(TimedRotatingFileHandler):
 
 def _build_logger(name: str, file_path: Path | None = None) -> logging.Logger:
     logger = logging.getLogger(name)
-    if logger.handlers:  # Ã©viter doublons
+    if logger.handlers:  # éviter doublons
         return logger
 
     if file_path is None:
@@ -91,7 +90,7 @@ def _build_logger(name: str, file_path: Path | None = None) -> logging.Logger:
 
 
 def get_plugin_logger(name: str) -> logging.Logger:
-    """Retourne un logger dÃ©diÃ© Ã  un plugin."""
+    """Retourne un logger dédié à un plugin."""
     file_path = PLUGIN_LOG_DIR / f"{name}.jsonl"
     return _build_logger(f"plugin.{name}", file_path)
 
@@ -100,14 +99,14 @@ _LOGGERS: dict[str, logging.Logger] = {}
 
 
 def get_logger(name: str) -> logging.Logger:
-    """Retourne un logger existant ou le crÃ©e si nÃ©cessaire."""
+    """Retourne un logger existant ou le crée si nécessaire."""
     if name not in _LOGGERS:
         _LOGGERS[name] = _build_logger(name)
     return _LOGGERS[name]
 
 
 server = get_logger("server")
-plugin = get_logger("plugin")
 llm = get_logger("llm")
 audit = get_logger("audit")
+
 

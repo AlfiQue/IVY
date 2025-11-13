@@ -1,4 +1,4 @@
-const API_URL = (import.meta as any).env?.VITE_API_URL || window.location.origin
+﻿const API_URL = (import.meta as any).env?.VITE_API_URL || window.location.origin
 const API_BASE = () => API_URL
 
 let csrfToken: string | null = null
@@ -7,17 +7,40 @@ export function getCsrfToken() { return csrfToken }
 
 async function req(path: string, opts: RequestInit = {}) {
   const url = API_BASE() + path
-  const headers: Record<string,string> = { 'Accept': 'application/json' }
+  const headers: Record<string, string> = { Accept: 'application/json' }
   if (opts.method && opts.method !== 'GET' && csrfToken) headers['X-CSRF-Token'] = csrfToken
   if (opts.body && !(opts.body instanceof FormData)) headers['Content-Type'] = 'application/json'
   const res = await fetch(url, { credentials: 'include', headers, ...opts })
-  if (!res.ok) throw new Error(`${res.status}`)
   const ct = res.headers.get('content-type') || ''
-  return ct.includes('application/json') ? res.json() : res.text()
+  const raw = await res.text()
+  if (!res.ok) {
+    let detail: unknown = raw
+    if (ct.includes('application/json')) {
+      try { detail = raw ? JSON.parse(raw) : null } catch { detail = raw }
+    }
+    const error: any = new Error(String(res.status))
+    error.status = res.status
+    error.detail = detail
+    throw error
+  }
+  if (!raw) return null
+  if (ct.includes('application/json')) {
+    try { return JSON.parse(raw) } catch { return raw }
+  }
+  return raw
+}
+
+function qs(params: Record<string, any>) {
+  const search = new URLSearchParams()
+  Object.entries(params).forEach(([k, v]) => {
+    if (v === undefined || v === null || v === '') return
+    search.append(k, String(v))
+  })
+  const s = search.toString()
+  return s ? `?${s}` : ''
 }
 
 export const api = {
-  // Auth
   login: async (user: string, password: string) => {
     const data = await req('/auth/login', { method:'POST', body: JSON.stringify({ user, password }) })
     setCsrfToken(data.csrf_token)
@@ -25,42 +48,42 @@ export const api = {
   },
   logout: () => req('/auth/logout', { method:'POST' }),
 
-  // Plugins
-  plugins: () => req('/plugins'),
-  pluginAction: (name: string, action: 'enable'|'disable'|'start'|'stop'|'reload') => req(`/plugins/${encodeURIComponent(name)}/${action}`, { method:'POST' }),
-  pluginUpload: (file: File) => { const fd = new FormData(); fd.append('file', file); return req('/plugins/upload', { method:'POST', body: fd })},
+  chatQuery: (question: string, conversation_id?: number | null) => req('/chat/query', { method:'POST', body: JSON.stringify({ question, conversation_id }) }),
+  chatConversations: (limit = 20, offset = 0) => req(`/chat/conversations${qs({ limit, offset })}`),
+  createConversation: (title?: string | null) => req('/chat/conversations', { method:'POST', body: JSON.stringify({ title }) }),
+  renameConversation: (id: number, title?: string | null) => req(`/chat/conversations/${id}`, { method:'PATCH', body: JSON.stringify({ title }) }),
+  deleteConversation: (id: number) => req(`/chat/conversations/${id}`, { method:'DELETE' }),
+  conversationMessages: (id: number, limit = 100, before_id?: number) => req(`/chat/conversations/${id}/messages${qs({ limit, before_id })}`),
 
-  // LLM
-  infer: (prompt: string, options?: any) => req('/llm/infer', { method:'POST', body: JSON.stringify({ prompt, options }) }),
+  memoryList: (limit = 50, offset = 0, search?: string) => req(`/memory/qa${qs({ limit, offset, search })}`),
+  memoryUpdate: (id: number, payload: any) => req(`/memory/qa/${id}`, { method:'PATCH', body: JSON.stringify(payload) }),
+  memoryDelete: (id: number) => req(`/memory/qa/${id}`, { method:'DELETE' }),
+  memoryClassifyLLM: (id: number, update_flag = false) => req(`/memory/qa/${id}/classify/llm${qs({ update_flag })}`, { method:'POST' }),
+  memoryClassifyHeuristic: (id: number, update_flag = false) => req(`/memory/qa/${id}/classify/heuristic${qs({ update_flag })}`, { method:'POST' }),
+  memoryExport: () => req('/memory/qa/export'),
+  memoryImport: (items: any[]) => req('/memory/qa/import', { method:'POST', body: JSON.stringify({ items }) }),
 
-  // RAG
-  ragReindex: (full=true) => req('/rag/reindex', { method:'POST', body: JSON.stringify({ full }) }),
-  ragQuery: (query: string, top_k=5) => req('/rag/query', { method:'POST', body: JSON.stringify({ query, top_k }) }),
 
-  // Jobs
+  debugSearch: (q: string, limit = 5) => req(`/debug/search${qs({ q, limit })}`),
+  jeedomStatus: () => req('/jeedom/status'),
+
+  getConfig: () => req('/config'),
+  updateConfig: (patch: any) => req('/config', { method:'PUT', body: JSON.stringify(patch) }),
+  listKeys: () => req('/apikeys'),
+  createKey: (name: string, scopes: string[]) => req('/apikeys', { method:'POST', body: JSON.stringify({ name, scopes }) }),
+  deleteKey: (id: string) => req(`/apikeys/${encodeURIComponent(id)}`, { method:'DELETE' }),
   jobs: () => req('/jobs'),
   addJob: (payload: any) => req('/jobs/add', { method:'POST', body: JSON.stringify(payload) }),
   runJobNow: (id: string) => req(`/jobs/${id}/run-now`, { method:'POST' }),
-  cancelJob: (id: string) => req(`/jobs/${id}/cancel`, { method:'POST' }),
-  deleteJob: (id: string) => req(`/jobs/${id}`, { method:'DELETE' }),
-  getJob: (id: string) => req(`/jobs/${id}`),
+    cancelJob: (id: string) => req(`/jobs/${id}/cancel`, { method:'POST' }),
+    deleteJob: (id: string) => req(`/jobs/${id}`, { method:'DELETE' }),
+    getJob: (id: string) => req(`/jobs/${id}`),
+    jobRuns: (id: string, limit = 10) => req(`/jobs/${id}/runs?limit=${encodeURIComponent(String(limit))}`),
   updateJob: (id: string, payload: any) => req(`/jobs/${id}/update`, { method:'POST', body: JSON.stringify(payload) }),
-
-  // Health
   health: () => req('/health'),
-
-  // History (replay)
-  historyReplay: () => req('/history/replay', { method:'POST' }),
-  historyList: (params: any = {}) => {
-    const q = new URLSearchParams(params)
-    return req(`/history?${q.toString()}`)
-  },
-
-  // Sessions
+  historyList: (params: any = {}) => req(`/history${qs(params)}`),
   sessions: () => req('/sessions'),
   terminateSession: (id: string) => req(`/sessions/${id}/terminate`, { method:'POST' }),
-
-  // Backup
   exportBackup: async () => {
     const res = await fetch(API_BASE() + '/backup/export', { credentials:'include' })
     if (!res.ok) throw new Error('export failed')
@@ -69,26 +92,6 @@ export const api = {
   importBackup: (file: File, dry_run=true) => { const fd = new FormData(); fd.append('file', file); return req(`/backup/import?dry_run=${dry_run?'true':'false'}`, { method:'POST', body: fd })},
 }
 
-export function connectLLMStream(prompt: string, options?: any) {
-  const api = new URL(API_URL)
-  const proto = api.protocol === 'https:' ? 'wss' : 'ws'
-  const url = `${proto}://${api.host}/llm/stream`
-  const ws = new WebSocket(url)
-  const req = { type: 'request', req_id: Date.now().toString(), source: 'webui', event: 'start', payload: { prompt, options }, ts: Date.now() }
-  return {
-    ws,
-    start(onToken: (t: string) => void, onEnd: () => void, onError: (e: any) => void) {
-      ws.onopen = () => ws.send(JSON.stringify(req))
-      ws.onmessage = (ev) => {
-        try {
-          const data = JSON.parse(ev.data)
-          if (data.event === 'token') onToken(data.payload)
-          if (data.event === 'end') onEnd()
-          if (data.event === 'error') onError(data.payload)
-        } catch { /* ignore */ }
-      }
-      ws.onerror = onError
-    },
-    close() { try { ws.close() } catch {} }
-  }
+export function connectLLMStream() {
+  throw new Error('Le streaming LLM n’est plus supporté. Utilisez chatQuery.')
 }
