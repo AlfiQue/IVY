@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' http://127.0.0.1:* http://IVY; img-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>IVY Desktop</title>
+  <style>
+    body{font-family:system-ui;background:#0b0b0b;color:#e6e6e6;margin:0;padding:1rem}
+    input,button,textarea{background:#111;border:1px solid #333;color:#e6e6e6;border-radius:.4rem;padding:.5rem}
+    .row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+    .card{border:1px solid #222;border-radius:.6rem;padding:1rem;margin:.5rem 0}
+  </style>
+</head>
+<body>
+  <h1>IVY Desktop</h1>
+  <section class="card">
+    <h2>Paramètres</h2>
+    <div class="row">
+      <label>Serveur <input id="server" size="30" placeholder="http://127.0.0.1:8000" /></label>
+      <label>whisper.exe <input id="whisperExe" size="30" placeholder="C:/path/whisper.exe" /></label>
+      <label>Modèle <input id="whisperModel" size="30" placeholder="C:/path/ggml-large-v3.bin" /></label>
+      <label>Préréglage
+        <select id="modelPreset">
+          <option value="large-v3">large-v3 (qualité)</option>
+          <option value="small">small (rapide)</option>
+        </select>
+      </label>
+      <button id="applyPreset">Appliquer chemin recommandé</button>
+      <label>VAD <input id="vad" type="checkbox" checked /></label>
+      <label>Durée max (s) <input id="maxSec" type="number" value="90" min="1" /></label>
+      <label>Voix TTS <input id="voice" size="30" value="tts_models/fr/css10/vits" /></label>
+    </div>
+    <div class="row"><button id="save">Enregistrer</button> <span id="saved"></span></div>
+  </section>
+  <section class="card">
+    <h2>STT & TTS</h2>
+    <div class="row">
+      <input id="wav" type="file" accept="audio/wav" />
+      <button id="stt">Transcrire</button>
+      <button id="speak">Parler</button>
+    </div>
+    <textarea id="text" rows="4" style="width:100%" placeholder="Texte à envoyer"></textarea>
+    <div class="row">
+      <button id="send">Envoyer au serveur</button>
+    </div>
+    <pre id="resp" style="white-space:pre-wrap"></pre>
+  </section>
+  <section class="card">
+    <h2>Mises à jour</h2>
+    <div class="row">
+      <button id="checkUpdate">Vérifier</button>
+      <span id="upd"></span>
+    </div>
+  </section>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>

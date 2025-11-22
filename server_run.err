@@ -1,0 +1,51 @@
++--------------------- Traceback (most recent call last) ---------------------+
+| C:\soft\IVY-main\app\cli.py:50 in serve                                     |
+|                                                                             |
+|    47 def serve() -> None:                                                  |
+|    48     """DÚmarrer le serveur FastAPI."""                                |
+|    49     settings = get_settings()                                         |
+| >  50     uvicorn.run("app.main:app", host=settings.host, port=settings.por |
+|    51                                                                       |
+|    52                                                                       |
+|    53 def _build_ui_app(static_dir: Path) -> FastAPI:                       |
+|                                                                             |
+| +-------------------------------- locals ---------------------------------+ |
+| | settings = Settings(                                                    | |
+| |                host='127.0.0.1',                                        | |
+| |                port=8000,                                               | |
+| |                cors_origins=['http://localhost', 'http://ivy.local'],   | |
+| |                cookie_samesite='lax',                                   | |
+| |                cookie_secure=False,                                     | |
+| |                csrf_max_age_seconds=3600,                               | |
+| |                rate_limit_rps=10,                                       | |
+| |                allowlist_domains=['open-meteo.com', 'duckduckgo.com'],  | |
+| |                allowlist_ports=[80, 443],                               | |
+| |                jwt_secret='zr1g8edg1ssfffsfQ81gq844g9q4g191gq919g19q4gà | |
+| |                reset_admin_flag='app/data/reset_admin.flag',            | |
+| |                db_path='app/data/history.db',                           | |
+| |                log_rotate_mb=100,                                       | |
+| |                log_retention_days=14,                                   | |
+| |                history_retention_days=30,                               | |
+| |                history_max_mb=200,                                      | |
+| |                mask_secrets_patterns='api_key,token,authorization,passà | |
+| |                chat_history_max_messages=12,                            | |
+| |                chat_system_prompt='Tu es IVY, assistant local           | |
+| |            francophone, synthetique et fiable. Tu cites tes sour'+39,   | |
+| |                qa_similarity_threshold=0.92,                            | |
+| |                duckduckgo_max_results=5,                                | |
+| |                duckduckgo_region='wt-wt',                               | |
+| |                duckduckgo_safe_search='moderate',                       | |
+| |                embedding_model_name='models/bge-m3',                    | |
+| |                llm_provider='llama_cpp',                                | |
+| |                llm_model_path='C:\\soft\\IVY-main\\models\\Meta-Llama-à | |
+| |                llm_context_tokens=8192,                                 | |
+| |                llm_max_input_tokens=8000,                               | |
+| |                llm_max_output_tokens=768,                               | |
+| |                llm_temperature=0.7,                                     | |
+| |                llm_n_gpu_layers=0,                                      | |
+| |                llm_speculative_enabled=False,                           | |
+| |                llm_speculative_model_path='models/Llama-3.2-1B-Instrucà | |
+| |                llm_speculative_context_tokens=4096,                     | |
+| |                llm_speculative_max_draft_tokens=64,                     | |
+| |                llm_speculative_n_gpu_layers=0,                          | |
+| |                voice_asr_model_path=None

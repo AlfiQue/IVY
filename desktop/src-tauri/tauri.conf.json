@@ -1,0 +1,31 @@
+{
+  "package": {
+    "productName": "IVY Desktop",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "shell": {
+        "all": false,
+        "scope": [
+          { "name": "whisper", "cmd": "**/whisper*.exe" },
+          { "name": "tts", "cmd": "**/tts*.exe" },
+          { "name": "python", "cmd": "**/python*.exe" },
+          { "name": "cmd", "cmd": "C:/Windows/System32/cmd.exe" }
+        ]
+      }
+    },
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' http://127.0.0.1:* http://IVY; img-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';"
+    },
+    "windows": [
+      {
+        "title": "IVY Desktop",
+        "width": 900,
+        "height": 700,
+        "resizable": true
+      }
+    ]
+  }
+}
+

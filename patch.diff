@@ -1,0 +1,32 @@
+*** Update File: desktop/voice_client/runtime/controller.py
+@@
+-    def apply_audio_settings(self) -> None:
+-        """Refresh capture and playback devices based on current settings."""
+-        audio = self.state.settings.audio
+-        self.capture.config.device_name = audio.input_device
+-        self.playback.config.device_name = audio.output_device
+-        use_vad = audio.eco_mode
+-        self.capture.config.deliver_silence = not use_vad
+-        if use_vad:
+-            if not isinstance(self.capture.vad, VoiceActivityDetector):
+-                self.capture.vad = VoiceActivityDetector()
+-        else:
+-            self.capture.vad = None
+-        self.vad = self.capture.vad
++    def apply_audio_settings(self) -> None:
++        """Refresh capture and playback devices based on current settings."""
++        audio = self.state.settings.audio
++        self.capture.config.device_name = audio.input_device
++        self.playback.config.device_name = audio.output_device
++        use_vad = audio.eco_mode
++        self.capture.config.deliver_silence = not use_vad
++        level = max(0, min(3, getattr(audio, "vad_aggressiveness", 2)))
++        if use_vad:
++            if isinstance(self.capture.vad, VoiceActivityDetector):
++                self.capture.vad.update_aggressiveness(level)
++            else:
++                self.capture.vad = VoiceActivityDetector(VADConfig(aggressiveness=level))
++        else:
++            self.capture.vad = None
++        self.vad = self.capture.vad
+*** End Patch

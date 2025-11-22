@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.venv/
+env/
+venv/
+build/
+dist/
+*.egg-info/
+*.egg
+.coverage
+.cache/
+
+# Node/React
+node_modules/
+webui/node_modules/
+desktop/node_modules/
+desktop/voice_client/resources/models/*
+models/*
+models/bge-m3/*
+webui/dist/
+desktop/dist/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Tauri
+src-tauri/target/
+src-tauri/**/node_modules/
+src-tauri/packaged/
+src-tauri/bundler/
+
+# Logs
+logs/
+*.log
+
+# Env
+.env
+.env.*
+!.env.example
+config.json
+
+# Misc
+.DS_Store
+.vscode/
+!app/logs/plugins/
+!app/logs/plugins/.gitkeep
+!app/logs/

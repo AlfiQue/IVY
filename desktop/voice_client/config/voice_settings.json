@@ -1,0 +1,41 @@
+{
+  "server": {
+    "base_url": "http://127.0.0.1:8000",
+    "username": "admin",
+    "password_plaintext": "admin",
+    "password_encrypted": null,
+    "verify_ssl": true
+  },
+  "audio": {
+    "input_device": null,
+    "output_device": null,
+    "asr_model": "faster-whisper-tiny",
+    "asr_fast_model": "faster-whisper-small",
+    "tts_voice": "fr-FR-piper-high/fr/fr_FR/upmc/medium",
+    "tts_length_scale": 0.92,
+    "tts_pitch": 0.85,
+    "enable_gpu": true,
+    "eco_mode": true,
+    "vad_aggressiveness": 1,
+    "auto_optimize_tts": true
+  },
+  "shortcuts": {
+    "push_to_talk": "Ctrl+Alt+E",
+    "pause_tts": "Ctrl+Alt+P",
+    "stop_tts": "Ctrl+Alt+S"
+  },
+  "cache": {
+    "max_entries": 20,
+    "ttl_seconds": 86400
+  },
+  "indicators": {
+    "ok": "green",
+    "reconnecting": "orange",
+    "error": "red"
+  },
+  "profile": {
+    "concise_mode": true,
+    "favorite_topics": {},
+    "last_suggestion_topic": null
+  }
+}
