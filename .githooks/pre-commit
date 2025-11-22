@@ -1,0 +1,11 @@
+#!/bin/sh
+# Bloque les commits sur la branche principale pour forcer la creation d'une branche de travail.
+
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) || exit 0
+
+if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
+  echo "Refus de commit sur $branch. Cree une branche (ex: scripts/new_branch.bat ma-feature)." >&2
+  exit 1
+fi
+
+exit 0
