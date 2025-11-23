@@ -14,7 +14,7 @@ from app.core.security import csrf_protect, require_jwt
 
 router = APIRouter(prefix="/config", tags=["config"])
 
-_SENSITIVE_KEYS = {"jwt_secret"}
+_SENSITIVE_KEYS = {"jwt_secret", "jeedom_api_key"}
 _MAX_IMPORT_BYTES = 512 * 1024  # 512 ko
 
 
