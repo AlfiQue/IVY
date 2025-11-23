@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     chat_system_prompt: str = "Tu es IVY, assistant local."
     qa_similarity_threshold: float = 0.9
 
+    # Jeedom
+    jeedom_base_url: str | None = None
+    jeedom_api_key: str | None = None
+
     # Recherche web
     duckduckgo_max_results: int = 5
     duckduckgo_region: str = "fr-fr"

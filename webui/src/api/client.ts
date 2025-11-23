@@ -107,6 +107,11 @@ interface ApiClient {
   debugLLMProfiles(payload: any): Promise<any>
 
   jeedomStatus(): Promise<any>
+  jeedomEquipments(): Promise<any>
+  jeedomCommands(): Promise<any>
+  jeedomRaw(type: string): Promise<any>
+  jeedomRunCommand(id: string, value?: string | number | null, params?: Record<string, any>): Promise<any>
+  jeedomScenarioAction(id: string, action?: 'start' | 'stop' | 'enable' | 'disable'): Promise<any>
 }
 
 export const api: ApiClient = {
@@ -257,6 +262,15 @@ export const api: ApiClient = {
 
   // Jeedom
   jeedomStatus: () => req('/jeedom/status'),
+  jeedomEquipments: () => req('/jeedom/equipments'),
+  jeedomCommands: () => req('/jeedom/commands'),
+  jeedomRaw: (type: string) => req(`/jeedom/raw?type=${encodeURIComponent(type)}`),
+  jeedomRunCommand: (id: string, value?: string | number | null, params?: Record<string, any>) => {
+    const qs = `?id=${encodeURIComponent(id)}`
+    return req(`/jeedom/command/run${qs}`, { method: 'POST', body: JSON.stringify({ id, value, params }) })
+  },
+  jeedomScenarioAction: (id: string, action: 'start' | 'stop' | 'enable' | 'disable' = 'start') =>
+    req('/jeedom/scenario', { method: 'POST', body: JSON.stringify({ id, action }) }),
 }
 
 export function connectLLMStream(prompt: string, options?: any) {
