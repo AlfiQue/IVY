@@ -2,15 +2,20 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 import httpx
+import difflib
+import unicodedata
 from pydantic import BaseModel
 from typing import Any
 import logging
+import json
+from pathlib import Path
 
 from app.core.config import Settings
 from app.core.security import require_jwt_or_api_key
 
 router = APIRouter(prefix="/jeedom", tags=["jeedom"])
 logger = logging.getLogger(__name__)
+INTENT_STORE = Path("app/data/jeedom_intents.json")
 
 
 def _extract_full_data(data: object) -> tuple[list[dict], list[dict], list[dict]]:
@@ -50,6 +55,41 @@ def _extract_full_data(data: object) -> tuple[list[dict], list[dict], list[dict]
     return objects, eq_logics, commands
 
 
+def _normalize(text: str | None) -> str:
+    if not text:
+        return ""
+    normalized = unicodedata.normalize("NFD", text)
+    normalized = "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn")
+    return normalized.lower()
+
+
+def _score_match(query_norm: str, candidate_norm: str) -> float:
+    if not candidate_norm:
+        return 0.0
+    if query_norm in candidate_norm:
+        return 1.0
+    return difflib.SequenceMatcher(None, query_norm, candidate_norm).ratio()
+
+
+def _load_intents() -> list[dict]:
+    if not INTENT_STORE.is_file():
+        return []
+    try:
+        raw = INTENT_STORE.read_text(encoding="utf-8")
+        data = json.loads(raw)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def _save_intents(entries: list[dict]) -> None:
+    try:
+        INTENT_STORE.parent.mkdir(parents=True, exist_ok=True)
+        INTENT_STORE.write_text(json.dumps(entries, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception:
+        logger.warning("Impossible d'écrire jeedom_intents.json", exc_info=True)
+
+
 class CommandExec(BaseModel):
     id: str
     value: str | int | float | None = None
@@ -59,6 +99,11 @@ class CommandExec(BaseModel):
 class ScenarioExec(BaseModel):
     id: str
     action: str = "start"
+
+
+class ResolveIntent(BaseModel):
+    query: str
+    execute: bool | None = False
 
 
 async def _jeedom_get(settings: Settings, params: dict) -> httpx.Response:
@@ -289,6 +334,197 @@ async def jeedom_scenario(payload: ScenarioExec, _: None = Depends(require_jwt_o
         )
         raw_text = (resp.text or "").strip()
         return {
+            "status_code": resp.status_code,
+            "raw_preview": raw_text[:200],
+        }
+    except Exception as exc:  # pragma: no cover - depends on remote Jeedom
+        return {"error": str(exc)}
+
+
+@router.post("/resolve")
+async def jeedom_resolve_intent(payload: ResolveIntent, _: None = Depends(require_jwt_or_api_key)) -> dict:
+    """
+    Tente de résoudre une commande Jeedom à partir d'une phrase (query).
+    Heuristiques simples : recherche dans noms d'objets/équipements/commandes.
+    Si execute=True et une seule commande matchée, l'exécute.
+    """
+    settings = Settings()
+    try:
+        resp = await _jeedom_get(settings, {"type": "fullData"})
+        raw_text = (resp.text or "").strip()
+        try:
+            data = resp.json()
+        except Exception:
+            data = raw_text
+        objects, eqs, commands = _extract_full_data(data)
+    except Exception as exc:  # pragma: no cover - depends on remote Jeedom
+        return {"error": str(exc)}
+
+    query_norm = _normalize(payload.query)
+    if not query_norm:
+        return {"error": "query vide"}
+
+    # 1) Lookup dans les intents mémorisés
+    stored = _load_intents()
+    best_intent = None
+    best_score = 0.0
+    for intent in stored:
+        cand_norm = _normalize(intent.get("query"))
+        score = _score_match(query_norm, cand_norm)
+        if score > best_score:
+            best_score = score
+            best_intent = intent
+
+    executed = None
+    memory_hit = None
+    if best_intent and best_score >= 0.7:
+        memory_hit = {"intent": best_intent, "score": round(best_score, 3)}
+        if payload.execute and best_intent.get("cmd_id"):
+            try:
+                exec_resp = await _jeedom_get(settings, {"type": "cmd", "id": best_intent["cmd_id"]})
+                executed = {
+                    "id": best_intent["cmd_id"],
+                    "status_code": exec_resp.status_code,
+                    "raw_preview": (exec_resp.text or "").strip()[:200],
+                    "source": "memory",
+                }
+            except Exception as exc:  # pragma: no cover - depends on remote Jeedom
+                executed = {"id": best_intent["cmd_id"], "error": str(exc), "source": "memory"}
+
+    # Prépare mapping objets et équipements
+    object_name: dict[str, str] = {}
+    for obj in objects:
+        if isinstance(obj, dict) and obj.get("id") is not None:
+            object_name[str(obj.get("id"))] = obj.get("name") or ""
+
+    eq_name: dict[str, str] = {}
+    eq_type: dict[str, str] = {}
+    for eq in eqs:
+        if isinstance(eq, dict) and eq.get("id") is not None:
+            eq_name[str(eq.get("id"))] = eq.get("name") or ""
+            eq_type[str(eq.get("id"))] = eq.get("eqType_name") or ""
+
+    candidates: list[dict] = []
+    for cmd in commands:
+        if not isinstance(cmd, dict):
+            continue
+        cmd_id = cmd.get("id")
+        if cmd_id is None:
+            continue
+        cmd_id_str = str(cmd_id)
+        eq_id = cmd.get("eq_id") or cmd.get("eqId") or cmd.get("eqLogic_id") or cmd.get("eqLogicId")
+        eq_id_str = str(eq_id) if eq_id is not None else ""
+        labels = [
+            cmd.get("name"),
+            cmd.get("logicalId"),
+            cmd.get("type"),
+            cmd.get("subType"),
+            eq_name.get(eq_id_str, ""),
+            eq_type.get(eq_id_str, ""),
+            object_name.get(str(eq.get("object_id")), ""),
+        ]
+        merged = " ".join(filter(None, [str(x) for x in labels]))
+        score = _score_match(query_norm, _normalize(merged))
+        if score < 0.35:
+            continue
+        candidates.append(
+            {
+                "id": cmd_id_str,
+                "name": cmd.get("name"),
+                "eq_id": eq_id,
+                "eq_name": eq_name.get(eq_id_str),
+                "type": cmd.get("type"),
+                "subType": cmd.get("subType"),
+                "score": round(score, 3),
+            }
+        )
+
+    candidates_sorted = sorted(candidates, key=lambda x: x["score"], reverse=True)
+
+    if executed is None and payload.execute and len(candidates_sorted) == 1:
+        target = candidates_sorted[0]
+        try:
+            exec_resp = await _jeedom_get(settings, {"type": "cmd", "id": target["id"]})
+            executed = {
+                "id": target["id"],
+                "status_code": exec_resp.status_code,
+                "raw_preview": (exec_resp.text or "").strip()[:200],
+                "source": "search",
+            }
+        except Exception as exc:  # pragma: no cover - depends on remote Jeedom
+            executed = {"id": target["id"], "error": str(exc), "source": "search"}
+
+    # 2) Sauvegarde l'intention si exécutée et pas déjà présente
+    if executed and executed.get("status_code") and executed["status_code"] == 200:
+        exists = any(
+            _normalize(intent.get("query")) == query_norm and intent.get("cmd_id") == executed.get("id")
+            for intent in stored
+        )
+        if not exists:
+            stored.append(
+                {
+                    "query": payload.query,
+                    "cmd_id": executed.get("id"),
+                    "ts": None,
+                    "source": executed.get("source"),
+                }
+            )
+            _save_intents(stored)
+
+    return {
+        "matched": candidates_sorted[:10],
+        "matched_count": len(candidates_sorted),
+        "executed": executed,
+        "memory_hit": memory_hit,
+        "status_code": resp.status_code if "resp" in locals() else None,
+    }
+
+
+@router.get("/catalog")
+async def jeedom_catalog(_: None = Depends(require_jwt_or_api_key)) -> dict:
+    """
+    Retourne un catalogue structuré (objets, équipements, commandes) pour alimenter un prompt LLM.
+    """
+    settings = Settings()
+    try:
+        resp = await _jeedom_get(settings, {"type": "fullData"})
+        raw_text = (resp.text or "").strip()
+        try:
+            data = resp.json()
+        except Exception:
+            data = raw_text
+        objects, eqs, cmds = _extract_full_data(data)
+        return {
+            "objects": [
+                {"id": obj.get("id"), "name": obj.get("name")}
+                for obj in objects
+                if isinstance(obj, dict)
+            ],
+            "equipments": [
+                {
+                    "id": eq.get("id"),
+                    "name": eq.get("name"),
+                    "type": eq.get("eqType_name"),
+                    "object_id": eq.get("object_id"),
+                }
+                for eq in eqs
+                if isinstance(eq, dict)
+            ],
+            "commands": [
+                {
+                    "id": cmd.get("id"),
+                    "name": cmd.get("name"),
+                    "type": cmd.get("type"),
+                    "subType": cmd.get("subType"),
+                    "eq_id": cmd.get("eq_id")
+                    or cmd.get("eqId")
+                    or cmd.get("eqLogic_id")
+                    or cmd.get("eqLogicId"),
+                    "logicalId": cmd.get("logicalId"),
+                }
+                for cmd in cmds
+                if isinstance(cmd, dict)
+            ],
             "status_code": resp.status_code,
             "raw_preview": raw_text[:200],
         }

@@ -1,0 +1,7 @@
+{"timestamp": "2025-11-22 19:38:53,791", "level": "INFO", "category": "voice.asr", "message": "Voice stream opened from Address(host='127.0.0.1', port=57224)", "trace_id": null}
+{"timestamp": "2025-11-22 19:38:55,361", "level": "INFO", "category": "voice.asr", "message": "Voice stream END marker after 52 frames (40.62 KB)", "trace_id": null}
+{"timestamp": "2025-11-22 18:38:55,361874", "message": "Voice stream END marker", "frames": 52, "kilobytes": 40.62, "sample_rate": 16000}
+{"timestamp": "2025-11-22 19:39:03,801", "level": "INFO", "category": "voice.asr", "message": "ASR final transcript (22 chars)", "trace_id": null}
+{"timestamp": "2025-11-22 18:39:03,801272", "message": "ASR final transcript", "chars": 22, "frames": 52, "sample_rate": 16000}
+{"timestamp": "2025-11-22 18:39:03,804640", "message": "Voice stream closed"}
+{"timestamp": "2025-11-23 21:48:33,705590", "message": "Voice stream opened", "client": "Address(host='127.0.0.1', port=18284)"}

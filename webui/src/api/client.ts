@@ -112,6 +112,8 @@ interface ApiClient {
   jeedomRaw(type: string): Promise<any>
   jeedomRunCommand(id: string, value?: string | number | null, params?: Record<string, any>): Promise<any>
   jeedomScenarioAction(id: string, action?: 'start' | 'stop' | 'enable' | 'disable'): Promise<any>
+  jeedomResolve(body: { query: string; execute?: boolean }): Promise<any>
+  jeedomCatalog(): Promise<any>
 }
 
 export const api: ApiClient = {
@@ -271,6 +273,9 @@ export const api: ApiClient = {
   },
   jeedomScenarioAction: (id: string, action: 'start' | 'stop' | 'enable' | 'disable' = 'start') =>
     req('/jeedom/scenario', { method: 'POST', body: JSON.stringify({ id, action }) }),
+  jeedomResolve: (body: { query: string; execute?: boolean }) =>
+    req('/jeedom/resolve', { method: 'POST', body: JSON.stringify(body) }),
+  jeedomCatalog: () => req('/jeedom/catalog'),
 }
 
 export function connectLLMStream(prompt: string, options?: any) {

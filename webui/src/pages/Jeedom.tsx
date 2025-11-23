@@ -62,6 +62,9 @@ export default function JeedomPage() {
   const [scenarioAction, setScenarioAction] = useState<'start' | 'stop' | 'enable' | 'disable'>('start')
   const [scenarioLoading, setScenarioLoading] = useState(false)
   const [scenarioMessage, setScenarioMessage] = useState<string | null>(null)
+  const [intentQuery, setIntentQuery] = useState('')
+  const [intentResult, setIntentResult] = useState<any | null>(null)
+  const [intentLoading, setIntentLoading] = useState(false)
 
   async function loadStatus() {
     setTesting(true)
@@ -323,6 +326,30 @@ export default function JeedomPage() {
     }
   }
 
+  async function resolveIntent(execute = false) {
+    if (!intentQuery.trim()) {
+      setError('Indiquez une phrase/intention à résoudre.')
+      return
+    }
+    setIntentLoading(true)
+    setIntentResult(null)
+    setError(null)
+    try {
+      const res = await api.jeedomResolve({ query: intentQuery.trim(), execute })
+      setIntentResult(res)
+      if (res.executed?.status_code) {
+        setMessage(`Intent exécuté (cmd ${res.executed.id}) status ${res.executed.status_code}`)
+        await loadData()
+      }
+    } catch (err) {
+      const statusCode = (err as any)?.status
+      if (statusCode === 401) setError('Authentification requise pour resolve.')
+      else setError('Resolve Jeedom impossible.')
+    } finally {
+      setIntentLoading(false)
+    }
+  }
+
   return (
     <div className="jeedom-page">
       <header
@@ -466,33 +493,96 @@ export default function JeedomPage() {
       </div>
 
       <div className="card" style={{ marginTop: '1rem' }}>
-        <h3>Scénarios</h3>
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          <label style={{ flex: '1 1 200px' }}>
-            ID scénario
+        <div style={{ display: 'grid', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <h3 style={{ margin: 0 }}>Scénarios</h3>
+            <span className="muted">Piloter un scénario par ID</span>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <label style={{ flex: '1 1 200px' }}>
+              ID scénario
+              <input
+                type="text"
+                value={scenarioId}
+                onChange={(e) => setScenarioId(e.target.value)}
+                placeholder="ex: 12"
+              />
+            </label>
+            <label>
+              Action
+              <select value={scenarioAction} onChange={(e) => setScenarioAction(e.target.value as any)}>
+                <option value="start">start</option>
+                <option value="stop">stop</option>
+                <option value="enable">enable</option>
+                <option value="disable">disable</option>
+              </select>
+            </label>
+            <button onClick={triggerScenario} disabled={scenarioLoading || !configured}>
+              {scenarioLoading ? 'Exécution…' : 'Lancer'}
+            </button>
+          </div>
+          <p className="muted" style={{ marginTop: -8 }}>
+            Indiquez l'ID du scénario Jeedom puis choisissez l'action à envoyer.
+          </p>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: '1rem' }}>
+        <div style={{ display: 'grid', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <h3 style={{ margin: 0 }}>Intent → Commande (LLM)</h3>
+            <span className="muted">Résolution et apprentissage local</span>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
             <input
               type="text"
-              value={scenarioId}
-              onChange={(e) => setScenarioId(e.target.value)}
-              placeholder="ex: 12"
+              value={intentQuery}
+              onChange={(e) => setIntentQuery(e.target.value)}
+              placeholder="ex: allume bureau"
+              style={{ flex: '1 1 240px' }}
             />
-          </label>
-          <label>
-            Action
-            <select value={scenarioAction} onChange={(e) => setScenarioAction(e.target.value as any)}>
-              <option value="start">start</option>
-              <option value="stop">stop</option>
-              <option value="enable">enable</option>
-              <option value="disable">disable</option>
-            </select>
-          </label>
-          <button onClick={triggerScenario} disabled={scenarioLoading || !configured}>
-            {scenarioLoading ? 'Exécution…' : 'Lancer'}
-          </button>
+            <button onClick={() => resolveIntent(false)} disabled={intentLoading || !configured}>
+              {intentLoading ? 'Recherche…' : 'Chercher'}
+            </button>
+            <button onClick={() => resolveIntent(true)} disabled={intentLoading || !configured}>
+              {intentLoading ? 'Exécution…' : 'Chercher + exécuter si unique'}
+            </button>
+          </div>
+          {intentResult ? (
+            <div className="muted" style={{ fontSize: '0.9rem' }}>
+              {intentResult.memory_hit ? (
+                <div>
+                  <strong>Mémoire :</strong> {JSON.stringify(intentResult.memory_hit)}
+                </div>
+              ) : null}
+              <div>
+                <strong>Matches ({intentResult.matched_count}):</strong>{' '}
+                {intentResult.matched
+                  ? intentResult.matched
+                      .slice(0, 5)
+                      .map(
+                        (m: any) =>
+                          `${m.name ?? '?'} (id=${m.id}, eq=${m.eq_name ?? m.eq_id ?? '?'}, score=${m.score})`,
+                      )
+                      .join(' | ')
+                  : ' - '}
+              </div>
+              {intentResult.executed ? (
+                <div>
+                  <strong>Exécuté :</strong>{' '}
+                  {`cmd ${intentResult.executed.id}, status ${intentResult.executed.status_code}, source ${intentResult.executed.source ?? '?'}`}
+                  {intentResult.executed.raw_preview ? ` · ${intentResult.executed.raw_preview}` : ''}
+                </div>
+              ) : (
+                <div>Exécution : aucune (matches multiples ou execute=false).</div>
+              )}
+            </div>
+          ) : (
+            <p className="muted" style={{ marginTop: -8 }}>
+              Saisissez une phrase type “allume bureau” ou “off salon”, puis lancez une recherche ou l’exécution directe.
+            </p>
+          )}
         </div>
-        <p className="muted" style={{ marginTop: 4 }}>
-          Indiquez l'ID du scénario Jeedom puis choisissez l'action à envoyer.
-        </p>
       </div>
 
       <div className="card" style={{ marginTop: '1rem' }}>
