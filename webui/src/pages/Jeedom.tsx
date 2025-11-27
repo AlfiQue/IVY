@@ -65,6 +65,20 @@ export default function JeedomPage() {
   const [intentQuery, setIntentQuery] = useState('')
   const [intentResult, setIntentResult] = useState<any | null>(null)
   const [intentLoading, setIntentLoading] = useState(false)
+  const [intents, setIntents] = useState<any[] | null>(null)
+  const [intentsLoading, setIntentsLoading] = useState(false)
+  const [newIntentQuery, setNewIntentQuery] = useState('')
+  const [newIntentCmd, setNewIntentCmd] = useState('')
+  const [newIntentSaving, setNewIntentSaving] = useState(false)
+  const [autoIntentInstructions, setAutoIntentInstructions] = useState('')
+  const [autoIntentLoading, setAutoIntentLoading] = useState(false)
+  const [autoIntentResult, setAutoIntentResult] = useState<any | null>(null)
+  const [autoLimit, setAutoLimit] = useState(200)
+  const [autoOffset, setAutoOffset] = useState(0)
+  const [autoTargetCmdIds, setAutoTargetCmdIds] = useState('')
+  const [autoMaxIntents, setAutoMaxIntents] = useState(30)
+  const [resolveDebug, setResolveDebug] = useState<any | null>(null)
+  const [resolveExec, setResolveExec] = useState<string | null>(null)
 
   async function loadStatus() {
     setTesting(true)
@@ -110,6 +124,7 @@ export default function JeedomPage() {
 
   useEffect(() => {
     refreshAll().catch(() => setError('Impossible de charger le statut Jeedom'))
+    loadIntents().catch(() => null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -337,16 +352,98 @@ export default function JeedomPage() {
     try {
       const res = await api.jeedomResolve({ query: intentQuery.trim(), execute })
       setIntentResult(res)
-      if (res.executed?.status_code) {
+      setResolveDebug(res)
+      if (res?.executed?.status_code) {
+        setResolveExec(`Exec cmd ${res.executed.id} status ${res.executed.status_code} source=${res.executed.source ?? '?'}`)
         setMessage(`Intent exécuté (cmd ${res.executed.id}) status ${res.executed.status_code}`)
         await loadData()
+      } else {
+        setResolveExec('Aucune exécution')
       }
     } catch (err) {
+      console.error('[Jeedom] resolve error', err)
       const statusCode = (err as any)?.status
       if (statusCode === 401) setError('Authentification requise pour resolve.')
       else setError('Resolve Jeedom impossible.')
+      setResolveDebug((err as any)?.detail ?? err)
     } finally {
       setIntentLoading(false)
+    }
+  }
+
+  async function loadIntents() {
+    setIntentsLoading(true)
+    try {
+      const res = await api.jeedomIntents()
+      setIntents(res?.items ?? [])
+    } catch {
+      setError('Impossible de charger les intentions mémorisées.')
+    } finally {
+      setIntentsLoading(false)
+    }
+  }
+
+  async function deleteIntent(cmdId?: string, query?: string) {
+    setError(null)
+    try {
+      await api.jeedomIntentDelete(cmdId, query)
+      await loadIntents()
+    } catch {
+      setError("Impossible de supprimer l'intention.")
+    }
+  }
+
+  async function clearIntents() {
+    setError(null)
+    try {
+      await api.jeedomIntentsClear()
+      setIntents([])
+    } catch {
+      setError('Impossible de vider les intentions.')
+    }
+  }
+
+  async function addIntent() {
+    if (!newIntentQuery.trim() || !newIntentCmd.trim()) {
+      setError('Indiquez une phrase et un cmd_id.')
+      return
+    }
+    setNewIntentSaving(true)
+    setError(null)
+    try {
+      await api.jeedomIntentAdd({ query: newIntentQuery.trim(), cmd_id: newIntentCmd.trim() })
+      setNewIntentQuery('')
+      setNewIntentCmd('')
+      await loadIntents()
+    } catch {
+      setError("Impossible d'ajouter l'intention.")
+    } finally {
+      setNewIntentSaving(false)
+    }
+  }
+
+  async function autoGenerateIntents() {
+    setAutoIntentLoading(true)
+    setAutoIntentResult(null)
+    setError(null)
+    try {
+      const res = await api.jeedomIntentsAuto({
+        instructions: autoIntentInstructions.trim() || undefined,
+        limit_cmds: autoLimit,
+        offset_cmds: autoOffset,
+        target_cmd_ids: autoTargetCmdIds
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+        max_intents: autoMaxIntents,
+      })
+      setAutoIntentResult(res)
+      await loadIntents()
+      setMessage(`Intentions générées: ${res?.added ?? 0} ajoutées.`)
+    } catch {
+      setError('Génération auto impossible (LLM). Vérifiez le modèle local.')
+    } finally {
+      setAutoIntentLoading(false)
     }
   }
 
@@ -419,6 +516,22 @@ export default function JeedomPage() {
           }}
         >
           {lastCommandDebug}
+        </pre>
+      ) : null}
+      {resolveExec ? <p className="success" style={{ marginTop: '0.35rem' }}>{resolveExec}</p> : null}
+      {resolveDebug ? (
+        <pre
+          style={{
+            background: '#f5f2ff',
+            border: '1px solid #d6ccf5',
+            padding: '0.5rem',
+            fontSize: '0.85rem',
+            whiteSpace: 'pre-wrap',
+            borderRadius: 8,
+            marginTop: '0.35rem',
+          }}
+        >
+          {JSON.stringify(resolveDebug, null, 2)}
         </pre>
       ) : null}
 
@@ -581,6 +694,138 @@ export default function JeedomPage() {
             <p className="muted" style={{ marginTop: -8 }}>
               Saisissez une phrase type “allume bureau” ou “off salon”, puis lancez une recherche ou l’exécution directe.
             </p>
+          )}
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: '1rem' }}>
+        <div style={{ display: 'grid', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <h3 style={{ margin: 0 }}>Intentions mémorisées</h3>
+            <span className="muted">Table locale query → cmd_id (jeedom_intents.json)</span>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button onClick={loadIntents} disabled={intentsLoading || !configured}>
+              {intentsLoading ? 'Chargement…' : 'Charger'}
+            </button>
+            <button onClick={clearIntents} disabled={intentsLoading || !configured}>
+              Vider
+            </button>
+            <button onClick={autoGenerateIntents} disabled={autoIntentLoading || !configured}>
+              {autoIntentLoading ? 'Auto (LLM)…' : 'Auto (LLM)'}
+            </button>
+            <span className="muted">Ajouter :</span>
+            <input
+              type="text"
+              placeholder="phrase ex: allume bureau"
+              value={newIntentQuery}
+              onChange={(e) => setNewIntentQuery(e.target.value)}
+              style={{ minWidth: 200 }}
+            />
+            <input
+              type="text"
+              placeholder="cmd_id ex: 1616"
+              value={newIntentCmd}
+              onChange={(e) => setNewIntentCmd(e.target.value)}
+              style={{ width: 120 }}
+            />
+            <button onClick={addIntent} disabled={newIntentSaving || intentsLoading || !configured}>
+              {newIntentSaving ? 'Ajout…' : 'Ajouter'}
+            </button>
+          </div>
+          <label>
+            Instructions LLM (optionnel)
+            <textarea
+              rows={2}
+              placeholder="Ex: privilégie les lumières et les commandes on/off"
+              value={autoIntentInstructions}
+              onChange={(e) => setAutoIntentInstructions(e.target.value)}
+            />
+          </label>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <label>
+              Limit
+              <input
+                type="number"
+                min={10}
+                max={400}
+                value={autoLimit}
+                onChange={(e) => setAutoLimit(Number(e.target.value))}
+                style={{ width: 90 }}
+              />
+            </label>
+            <label>
+              Offset
+              <input
+                type="number"
+                min={0}
+                value={autoOffset}
+                onChange={(e) => setAutoOffset(Number(e.target.value))}
+                style={{ width: 90 }}
+              />
+            </label>
+            <label style={{ flex: '1 1 220px' }}>
+              Cmd IDs ciblés (optionnel, virgule)
+              <input
+                type="text"
+                placeholder="ex: 1616,1615"
+                value={autoTargetCmdIds}
+                onChange={(e) => setAutoTargetCmdIds(e.target.value)}
+              />
+            </label>
+            <label>
+              Max intents
+              <input
+                type="number"
+                min={5}
+                max={200}
+                value={autoMaxIntents}
+                onChange={(e) => setAutoMaxIntents(Number(e.target.value))}
+                style={{ width: 90 }}
+              />
+            </label>
+            <span className="muted">Traite par lots (ex: offset 0, 200, 400...).</span>
+          </div>
+          {autoIntentResult ? (
+            <div className="muted" style={{ fontSize: '0.9rem' }}>
+              <div>
+                Généré : {autoIntentResult?.generated?.length ?? 0} · Ajoutés : {autoIntentResult?.added ?? 0}
+              </div>
+              {autoIntentResult.raw_model_output ? (
+                <div>LLM preview: {autoIntentResult.raw_model_output}</div>
+              ) : null}
+            </div>
+          ) : null}
+          {intents && intents.length > 0 ? (
+            <div className="table-like" style={{ marginTop: '0.25rem' }}>
+              <div className="table-row header">
+                <span>Query</span>
+                <span>Cmd ID</span>
+                <span>Source</span>
+                <span>TS</span>
+                <span>Action</span>
+              </div>
+              {intents.slice(0, 40).map((it: any) => (
+                <div key={`${it.query}-${it.cmd_id}-${it.ts}`} className="table-row">
+                  <span>{it.query}</span>
+                  <span>{it.cmd_id}</span>
+                  <span>{it.source ?? '-'}</span>
+                  <span>{it.ts ?? '-'}</span>
+                  <span>
+                    <button onClick={() => deleteIntent(it.cmd_id, it.query)} disabled={intentsLoading}>
+                      Supprimer
+                    </button>
+                  </span>
+                </div>
+              ))}
+              {intents.length > 40 ? (
+                <div className="table-row">
+                  <span className="muted">+{intents.length - 40} supplémentaires…</span>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <p className="muted" style={{ marginTop: -4 }}>Aucune intention mémorisée.</p>
           )}
         </div>
       </div>

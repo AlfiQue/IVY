@@ -1,0 +1,152 @@
+[
+  {
+    "query": "allume la lumiere du bureau",
+    "cmd_id": "1616",
+    "source": "search",
+    "ts": "2025-11-27T19:25:18.490559Z"
+  },
+  {
+    "query": "allume bureau",
+    "cmd_id": "1616",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.784196Z"
+  },
+  {
+    "query": "éteins bureau",
+    "cmd_id": "1615",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.785204Z"
+  },
+  {
+    "query": "allume salon",
+    "cmd_id": "1617",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.786203Z"
+  },
+  {
+    "query": "éteins salon",
+    "cmd_id": "1618",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.786203Z"
+  },
+  {
+    "query": "statut bureau",
+    "cmd_id": "1616",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.787707Z"
+  },
+  {
+    "query": "statut salon",
+    "cmd_id": "1617",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.788710Z"
+  },
+  {
+    "query": "lance scénario chauffage",
+    "cmd_id": "1620",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.789710Z"
+  },
+  {
+    "query": "arrête scénario chauffage",
+    "cmd_id": "1621",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.790718Z"
+  },
+  {
+    "query": "allume cuisine",
+    "cmd_id": "1619",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.791721Z"
+  },
+  {
+    "query": "éteins cuisine",
+    "cmd_id": "1622",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.792712Z"
+  },
+  {
+    "query": "statut cuisine",
+    "cmd_id": "1619",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.792712Z"
+  },
+  {
+    "query": "allume jardin",
+    "cmd_id": "1623",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.793718Z"
+  },
+  {
+    "query": "éteins jardin",
+    "cmd_id": "1624",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.794710Z"
+  },
+  {
+    "query": "statut jardin",
+    "cmd_id": "1623",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.795710Z"
+  },
+  {
+    "query": "allume chambre",
+    "cmd_id": "1625",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.796710Z"
+  },
+  {
+    "query": "éteins chambre",
+    "cmd_id": "1626",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.798223Z"
+  },
+  {
+    "query": "statut chambre",
+    "cmd_id": "1625",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.799224Z"
+  },
+  {
+    "query": "allume salle de bain",
+    "cmd_id": "1627",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.799224Z"
+  },
+  {
+    "query": "éteins salle de bain",
+    "cmd_id": "1628",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.801232Z"
+  },
+  {
+    "query": "statut salle de bain",
+    "cmd_id": "1627",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.801232Z"
+  },
+  {
+    "query": "allume garage",
+    "cmd_id": "1629",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.802231Z"
+  },
+  {
+    "query": "éteins garage",
+    "cmd_id": "1630",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.803230Z"
+  },
+  {
+    "query": "statut garage",
+    "cmd_id": "1629",
+    "source": "auto",
+    "ts": "2025-11-27T19:35:26.804224Z"
+  },
+  {
+    "query": "éteint bureau",
+    "cmd_id": "1615",
+    "source": "memory",
+    "ts": "2025-11-27T20:05:40.506553Z"
+  }
+]
