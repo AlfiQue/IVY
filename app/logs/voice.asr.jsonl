@@ -1,6 +1,78 @@
-{"timestamp": "2025-11-22 19:38:53,791", "level": "INFO", "category": "voice.asr", "message": "Voice stream opened from Address(host='127.0.0.1', port=57224)", "trace_id": null}
-{"timestamp": "2025-11-22 19:38:55,361", "level": "INFO", "category": "voice.asr", "message": "Voice stream END marker after 52 frames (40.62 KB)", "trace_id": null}
-{"timestamp": "2025-11-22 18:38:55,361874", "message": "Voice stream END marker", "frames": 52, "kilobytes": 40.62, "sample_rate": 16000}
-{"timestamp": "2025-11-22 19:39:03,801", "level": "INFO", "category": "voice.asr", "message": "ASR final transcript (22 chars)", "trace_id": null}
-{"timestamp": "2025-11-22 18:39:03,801272", "message": "ASR final transcript", "chars": 22, "frames": 52, "sample_rate": 16000}
-{"timestamp": "2025-11-22 18:39:03,804640", "message": "Voice stream closed"}
+{"timestamp": "2025-11-27 20:26:07,297", "level": "INFO", "category": "voice.asr", "message": "Voice stream opened from Address(host='127.0.0.1', port=53596)", "trace_id": null}
+{"timestamp": "2025-11-27 20:26:09,332", "level": "INFO", "category": "voice.asr", "message": "Voice stream END marker after 67 frames (52.34 KB)", "trace_id": null}
+{"timestamp": "2025-11-27 19:26:09,333413", "message": "Voice stream END marker", "frames": 67, "kilobytes": 52.34, "sample_rate": 16000}
+{"timestamp": "2025-11-27 20:26:28,995", "level": "INFO", "category": "voice.asr", "message": "ASR final transcript (28 chars)", "trace_id": null}
+{"timestamp": "2025-11-27 19:26:28,996889", "message": "ASR final transcript", "chars": 28, "frames": 67, "sample_rate": 16000}
+{"timestamp": "2025-11-27 19:26:28,999892", "message": "Voice stream closed"}
+{"timestamp": "2025-11-27 19:27:22,374770", "message": "Voice stream opened", "client": "Address(host='127.0.0.1', port=65060)"}
+{"timestamp": "2025-11-27 20:27:22,374", "level": "INFO", "category": "voice.asr", "message": "Voice stream opened from Address(host='127.0.0.1', port=65060)", "trace_id": null}
+{"timestamp": "2025-11-27 20:27:24,514", "level": "INFO", "category": "voice.asr", "message": "Voice stream END marker after 67 frames (52.34 KB)", "trace_id": null}
+{"timestamp": "2025-11-27 19:27:24,514464", "message": "Voice stream END marker", "frames": 67, "kilobytes": 52.34, "sample_rate": 16000}
+{"timestamp": "2025-11-27 20:27:29,524", "level": "INFO", "category": "voice.asr", "message": "ASR final transcript (28 chars)", "trace_id": null}
+{"timestamp": "2025-11-27 19:27:29,524230", "message": "ASR final transcript", "chars": 28, "frames": 67, "sample_rate": 16000}
+{"timestamp": "2025-11-27 19:27:29,526223", "message": "Voice stream closed"}
+{"timestamp": "2025-11-27 19:27:39,680705", "message": "Voice stream opened", "client": "Address(host='127.0.0.1', port=65072)"}
+{"timestamp": "2025-11-27 20:27:39,681", "level": "INFO", "category": "voice.asr", "message": "Voice stream opened from Address(host='127.0.0.1', port=65072)", "trace_id": null}
+{"timestamp": "2025-11-27 20:27:52,285", "level": "INFO", "category": "voice.asr", "message": "Voice stream END marker after 148 frames (115.62 KB)", "trace_id": null}
+{"timestamp": "2025-11-27 19:27:52,285279", "message": "Voice stream END marker", "frames": 148, "kilobytes": 115.62, "sample_rate": 16000}
+{"timestamp": "2025-11-27 19:27:57,720709", "message": "Voice stream opened", "client": "Address(host='127.0.0.1', port=53056)"}
+{"timestamp": "2025-11-27 20:27:57,722", "level": "INFO", "category": "voice.asr", "message": "Voice stream opened from Address(host='127.0.0.1', port=53056)", "trace_id": null}
+{"timestamp": "2025-11-27 20:27:57,816", "level": "INFO", "category": "voice.asr", "message": "ASR final transcript (32 chars)", "trace_id": null}
+{"timestamp": "2025-11-27 19:27:57,816048", "message": "ASR final transcript", "chars": 32, "frames": 148, "sample_rate": 16000}
+{"timestamp": "2025-11-27 20:27:57,816", "level": "INFO", "category": "voice.asr", "message": "Voice stream disconnected: Address(host='127.0.0.1', port=65072)", "trace_id": null}
+{"timestamp": "2025-11-27 19:27:57,816048", "message": "Voice stream disconnected", "client": "Address(host='127.0.0.1', port=65072)"}
+{"timestamp": "2025-11-27 19:27:57,817048", "message": "Voice stream closed"}
+{"timestamp": "2025-11-27 20:28:00,365", "level": "INFO", "category": "voice.asr", "message": "Voice stream END marker after 67 frames (52.34 KB)", "trace_id": null}
+{"timestamp": "2025-11-27 19:28:00,365575", "message": "Voice stream END marker", "frames": 67, "kilobytes": 52.34, "sample_rate": 16000}
+{"timestamp": "2025-11-27 20:28:05,639", "level": "INFO", "category": "voice.asr", "message": "ASR final transcript (28 chars)", "trace_id": null}
+{"timestamp": "2025-11-27 19:28:05,639518", "message": "ASR final transcript", "chars": 28, "frames": 67, "sample_rate": 16000}
+{"timestamp": "2025-11-27 19:28:05,641526", "message": "Voice stream closed"}
+{"timestamp": "2025-11-27 19:28:31,236668", "message": "Voice stream opened", "client": "Address(host='127.0.0.1', port=4912)"}
+{"timestamp": "2025-11-27 20:28:31,236", "level": "INFO", "category": "voice.asr", "message": "Voice stream opened from Address(host='127.0.0.1', port=4912)", "trace_id": null}
+{"timestamp": "2025-11-27 20:28:31,399", "level": "INFO", "category": "voice.asr", "message": "Voice stream END marker after 0 frames (0.00 KB)", "trace_id": null}
+{"timestamp": "2025-11-27 19:28:31,400646", "message": "Voice stream END marker", "frames": 0, "kilobytes": 0.0, "sample_rate": null}
+{"timestamp": "2025-11-27 20:28:31,400", "level": "INFO", "category": "voice.asr", "message": "ASR final transcript (22 chars)", "trace_id": null}
+{"timestamp": "2025-11-27 19:28:31,400646", "message": "ASR final transcript", "chars": 22, "frames": 0, "sample_rate": 16000}
+{"timestamp": "2025-11-27 19:28:31,401650", "message": "Voice stream closed"}
+{"timestamp": "2025-11-27 19:28:34,218108", "message": "Voice stream opened", "client": "Address(host='127.0.0.1', port=4914)"}
+{"timestamp": "2025-11-27 20:28:34,218", "level": "INFO", "category": "voice.asr", "message": "Voice stream opened from Address(host='127.0.0.1', port=4914)", "trace_id": null}
+{"timestamp": "2025-11-27 20:28:36,358", "level": "INFO", "category": "voice.asr", "message": "Voice stream END marker after 65 frames (50.78 KB)", "trace_id": null}
+{"timestamp": "2025-11-27 19:28:36,358451", "message": "Voice stream END marker", "frames": 65, "kilobytes": 50.78, "sample_rate": 16000}
+{"timestamp": "2025-11-27 20:28:41,840", "level": "INFO", "category": "voice.asr", "message": "ASR final transcript (28 chars)", "trace_id": null}
+{"timestamp": "2025-11-27 19:28:41,840668", "message": "ASR final transcript", "chars": 28, "frames": 65, "sample_rate": 16000}
+{"timestamp": "2025-11-27 19:28:41,843035", "message": "Voice stream closed"}
+{"timestamp": "2025-11-27 19:28:58,668439", "message": "Voice stream opened", "client": "Address(host='127.0.0.1', port=20134)"}
+{"timestamp": "2025-11-27 20:28:58,669", "level": "INFO", "category": "voice.asr", "message": "Voice stream opened from Address(host='127.0.0.1', port=20134)", "trace_id": null}
+{"timestamp": "2025-11-27 20:29:01,734", "level": "INFO", "category": "voice.asr", "message": "Voice stream END marker after 79 frames (61.72 KB)", "trace_id": null}
+{"timestamp": "2025-11-27 19:29:01,734076", "message": "Voice stream END marker", "frames": 79, "kilobytes": 61.72, "sample_rate": 16000}
+{"timestamp": "2025-11-27 20:29:06,940", "level": "INFO", "category": "voice.asr", "message": "ASR final transcript (28 chars)", "trace_id": null}
+{"timestamp": "2025-11-27 19:29:06,940384", "message": "ASR final transcript", "chars": 28, "frames": 79, "sample_rate": 16000}
+{"timestamp": "2025-11-27 19:29:06,942376", "message": "Voice stream closed"}
+{"timestamp": "2025-11-27 19:35:40,137870", "message": "Voice stream opened", "client": "Address(host='127.0.0.1', port=64834)"}
+{"timestamp": "2025-11-27 20:35:40,138", "level": "INFO", "category": "voice.asr", "message": "Voice stream opened from Address(host='127.0.0.1', port=64834)", "trace_id": null}
+{"timestamp": "2025-11-27 20:35:42,736", "level": "INFO", "category": "voice.asr", "message": "Voice stream END marker after 84 frames (65.62 KB)", "trace_id": null}
+{"timestamp": "2025-11-27 19:35:42,736834", "message": "Voice stream END marker", "frames": 84, "kilobytes": 65.62, "sample_rate": 16000}
+{"timestamp": "2025-11-27 20:35:47,955", "level": "INFO", "category": "voice.asr", "message": "ASR final transcript (28 chars)", "trace_id": null}
+{"timestamp": "2025-11-27 19:35:47,955995", "message": "ASR final transcript", "chars": 28, "frames": 84, "sample_rate": 16000}
+{"timestamp": "2025-11-27 19:35:47,957998", "message": "Voice stream closed"}
+{"timestamp": "2025-11-27 19:36:19,587621", "message": "Voice stream opened", "client": "Address(host='127.0.0.1', port=33806)"}
+{"timestamp": "2025-11-27 20:36:19,587", "level": "INFO", "category": "voice.asr", "message": "Voice stream opened from Address(host='127.0.0.1', port=33806)", "trace_id": null}
+{"timestamp": "2025-11-27 20:36:19,739", "level": "INFO", "category": "voice.asr", "message": "Voice stream END marker after 0 frames (0.00 KB)", "trace_id": null}
+{"timestamp": "2025-11-27 19:36:19,739923", "message": "Voice stream END marker", "frames": 0, "kilobytes": 0.0, "sample_rate": null}
+{"timestamp": "2025-11-27 20:36:19,740", "level": "INFO", "category": "voice.asr", "message": "ASR final transcript (22 chars)", "trace_id": null}
+{"timestamp": "2025-11-27 19:36:19,740923", "message": "ASR final transcript", "chars": 22, "frames": 0, "sample_rate": 16000}
+{"timestamp": "2025-11-27 19:36:19,742923", "message": "Voice stream closed"}
+{"timestamp": "2025-11-27 20:05:51,640912", "message": "Voice stream opened", "client": "Address(host='127.0.0.1', port=43473)"}
+{"timestamp": "2025-11-27 21:05:51,640", "level": "INFO", "category": "voice.asr", "message": "Voice stream opened from Address(host='127.0.0.1', port=43473)", "trace_id": null}
+{"timestamp": "2025-11-27 21:05:53,619", "level": "INFO", "category": "voice.asr", "message": "Voice stream END marker after 70 frames (54.69 KB)", "trace_id": null}
+{"timestamp": "2025-11-27 20:05:53,620772", "message": "Voice stream END marker", "frames": 70, "kilobytes": 54.69, "sample_rate": 16000}
+{"timestamp": "2025-11-27 21:06:02,634", "level": "INFO", "category": "voice.asr", "message": "ASR final transcript (28 chars)", "trace_id": null}
+{"timestamp": "2025-11-27 20:06:02,635094", "message": "ASR final transcript", "chars": 28, "frames": 70, "sample_rate": 16000}
+{"timestamp": "2025-11-27 20:06:02,637109", "message": "Voice stream closed"}
+{"timestamp": "2025-11-27 20:10:49,218036", "message": "Voice stream opened", "client": "Address(host='127.0.0.1', port=1115)"}
+{"timestamp": "2025-11-27 21:10:49,218", "level": "INFO", "category": "voice.asr", "message": "Voice stream opened from Address(host='127.0.0.1', port=1115)", "trace_id": null}
+{"timestamp": "2025-11-27 21:10:51,503", "level": "INFO", "category": "voice.asr", "message": "Voice stream END marker after 75 frames (58.59 KB)", "trace_id": null}
+{"timestamp": "2025-11-27 20:10:51,503048", "message": "Voice stream END marker", "frames": 75, "kilobytes": 58.59, "sample_rate": 16000}
+{"timestamp": "2025-11-27 21:11:00,028", "level": "INFO", "category": "voice.asr", "message": "ASR final transcript (28 chars)", "trace_id": null}
+{"timestamp": "2025-11-27 20:11:00,029896", "message": "ASR final transcript", "chars": 28, "frames": 75, "sample_rate": 16000}
+{"timestamp": "2025-11-27 20:11:00,031947", "message": "Voice stream closed"}

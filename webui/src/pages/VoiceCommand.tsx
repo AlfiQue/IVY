@@ -7,6 +7,7 @@ export default function VoiceCommand() {
   const [text, setText] = useState('')
   const [answer, setAnswer] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [resolveRes, setResolveRes] = useState<any | null>(null)
   const recRef = useRef<any>(null)
 
   useEffect(() => {
@@ -53,8 +54,13 @@ export default function VoiceCommand() {
   async function send() {
     if (!text.trim()) return
     try {
-      const res = await api.chatQuery(text.trim())
-      setAnswer(String(res.answer ?? res.answer_message?.content ?? ''))
+      const res = await api.jeedomResolve({ query: text.trim(), execute: true })
+      setResolveRes(res)
+      if (res?.executed?.status_code) {
+        setAnswer(`Exec cmd ${res.executed.id} status ${res.executed.status_code} source=${res.executed.source ?? '?'}`)
+      } else {
+        setAnswer('Aucune exécution')
+      }
       setError(null)
     } catch (e: any) {
       setError(e?.message || String(e))
@@ -83,6 +89,20 @@ export default function VoiceCommand() {
           <strong>Réponse</strong>
           <p>{answer}</p>
         </div>
+      ) : null}
+      {resolveRes ? (
+        <pre
+          style={{
+            background: '#f5f2ff',
+            border: '1px solid #d6ccf5',
+            padding: '0.5rem',
+            fontSize: '0.85rem',
+            whiteSpace: 'pre-wrap',
+            marginTop: '0.5rem',
+          }}
+        >
+          {JSON.stringify(resolveRes, null, 2)}
+        </pre>
       ) : null}
     </section>
   )

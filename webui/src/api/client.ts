@@ -112,6 +112,13 @@ interface ApiClient {
   jeedomRaw(type: string): Promise<any>
   jeedomRunCommand(id: string, value?: string | number | null, params?: Record<string, any>): Promise<any>
   jeedomScenarioAction(id: string, action?: 'start' | 'stop' | 'enable' | 'disable'): Promise<any>
+  jeedomResolve(body: { query: string; execute?: boolean }): Promise<any>
+  jeedomCatalog(): Promise<any>
+  jeedomIntents(): Promise<any>
+  jeedomIntentDelete(cmd_id?: string, query?: string): Promise<any>
+  jeedomIntentsClear(): Promise<any>
+  jeedomIntentAdd(body: { query: string; cmd_id: string }): Promise<any>
+  jeedomIntentsAuto(body?: { instructions?: string; limit_cmds?: number; offset_cmds?: number; target_cmd_ids?: string[]; max_intents?: number }): Promise<any>
 }
 
 export const api: ApiClient = {
@@ -271,6 +278,27 @@ export const api: ApiClient = {
   },
   jeedomScenarioAction: (id: string, action: 'start' | 'stop' | 'enable' | 'disable' = 'start') =>
     req('/jeedom/scenario', { method: 'POST', body: JSON.stringify({ id, action }) }),
+  jeedomResolve: (body: { query: string; execute?: boolean }) => {
+    const params = new URLSearchParams()
+    if (body.query) params.set('query', body.query)
+    if (body.execute !== undefined) params.set('execute', body.execute ? 'true' : 'false')
+    const suffix = params.toString()
+    return req(`/jeedom/resolve${suffix ? `?${suffix}` : ''}`, { method: 'POST', body: JSON.stringify(body) })
+  },
+  jeedomCatalog: () => req('/jeedom/catalog'),
+  jeedomIntents: () => req('/jeedom/intents'),
+  jeedomIntentAdd: (body: { query: string; cmd_id: string }) =>
+    req('/jeedom/intents', { method: 'POST', body: JSON.stringify(body) }),
+  jeedomIntentDelete: (cmd_id?: string, query?: string) => {
+    const params = new URLSearchParams()
+    if (cmd_id) params.set('cmd_id', cmd_id)
+    if (query) params.set('query', query)
+    const suffix = params.toString()
+    return req(`/jeedom/intents${suffix ? `?${suffix}` : ''}`, { method: 'DELETE' })
+  },
+  jeedomIntentsClear: () => req('/jeedom/intents/all', { method: 'DELETE' }),
+  jeedomIntentsAuto: (body: { instructions?: string; limit_cmds?: number; offset_cmds?: number } = {}) =>
+    req('/jeedom/intents/auto', { method: 'POST', body: JSON.stringify(body) }),
 }
 
 export function connectLLMStream(prompt: string, options?: any) {
