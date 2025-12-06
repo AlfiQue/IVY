@@ -10,8 +10,10 @@ import logging
 import json
 from pathlib import Path
 from datetime import datetime
+from time import monotonic
 import asyncio
 import os
+from collections import deque
 
 from app.core.config import Settings
 from app.core.security import require_jwt_or_api_key
@@ -22,6 +24,10 @@ logger = logging.getLogger(__name__)
 INTENT_STORE = Path("app/data/jeedom_intents.json")
 INTENT_STORE_TMP = Path("app/data/jeedom_intents_tmp.json")
 INTENT_STORE_WEB = Path("webui/public/jeedom_intents.json")
+_FULLDATA_CACHE: dict[str, object] = {}
+_FULLDATA_CACHE_TTL = 60.0
+_FULLDATA_LOCK = asyncio.Lock()
+_JEEDOM_TRACES: deque[dict[str, object]] = deque(maxlen=15)
 
 
 def _extract_full_data(data: object) -> tuple[list[dict], list[dict], list[dict]]:
@@ -85,6 +91,27 @@ def _score_match(query_norm: str, candidate_norm: str) -> float:
     if query_norm in candidate_norm:
         return 0.95
     return difflib.SequenceMatcher(None, query_norm, candidate_norm).ratio()
+
+
+_SYNONYMS = {
+    "lumiere": ["lampe", "light", "lumieres", "lampes"],
+    "chauffage": ["radiateur", "thermostat"],
+    "prise": ["switch", "prise connectee"],
+    "volet": ["store", "rideau"],
+}
+
+
+def _expand_synonyms(text: str) -> str:
+    tokens = text.split()
+    expanded: list[str] = []
+    for tok in tokens:
+        expanded.append(tok)
+        for base, alts in _SYNONYMS.items():
+            if tok.startswith(base):
+                expanded.extend(alts)
+            if tok in alts:
+                expanded.append(base)
+    return " ".join(expanded)
 
 
 def _load_intents() -> list[dict]:
@@ -172,16 +199,85 @@ class ResolveIntent(BaseModel):
     execute: bool | None = False
 
 
+def _invalidate_full_data_cache() -> None:
+    _FULLDATA_CACHE.clear()
+
+
+async def _get_full_data_cached(settings: Settings, *, force: bool = False) -> tuple[object, str, int]:
+    now = monotonic()
+    async with _FULLDATA_LOCK:
+        ts = _FULLDATA_CACHE.get("ts")
+        if (
+            not force
+            and isinstance(ts, (int, float))
+            and now - float(ts) < _FULLDATA_CACHE_TTL
+            and "data" in _FULLDATA_CACHE
+        ):
+            return (
+                _FULLDATA_CACHE["data"],
+                str(_FULLDATA_CACHE.get("raw", "")),
+                int(_FULLDATA_CACHE.get("status_code", 0) or 0),
+            )
+
+    resp = await _jeedom_get(settings, {"type": "fullData"})
+    raw_text = (resp.text or "").strip()
+    if resp.status_code != 200:
+        raise RuntimeError(f"Jeedom fullData a renvoye {resp.status_code}: {raw_text[:200]}")
+    try:
+        data = resp.json()
+    except Exception:
+        raise RuntimeError(f"Jeedom fullData reponse non JSON: {raw_text[:200]}")
+    if not isinstance(data, (dict, list)):
+        raise RuntimeError("Jeedom fullData reponse inattendue (ni dict ni liste)")
+
+    async with _FULLDATA_LOCK:
+        _FULLDATA_CACHE["ts"] = now
+        _FULLDATA_CACHE["data"] = data
+        _FULLDATA_CACHE["raw"] = raw_text
+        _FULLDATA_CACHE["status_code"] = resp.status_code
+
+    return data, raw_text, resp.status_code
+
+
 async def _jeedom_get(settings: Settings, params: dict) -> httpx.Response:
     base_url = settings.jeedom_base_url
     api_key = settings.jeedom_api_key
     if not base_url or not api_key:
         raise RuntimeError("jeedom_base_url ou jeedom_api_key manquants")
+    allowed = getattr(settings, "jeedom_allowed_hosts", []) or []
+    try:
+        host = httpx.URL(base_url).host
+    except Exception:
+        host = None
+    if allowed and host and host not in allowed:
+        raise RuntimeError(f"Host Jeedom non autorise: {host}")
     url = f"{base_url.rstrip('/')}/core/api/jeeApi.php"
     full_params = {"apikey": api_key}
     full_params.update(params)
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.get(url, params=full_params)
+    timeout = float(getattr(settings, "jeedom_timeout", 10.0) or 10.0)
+
+    async def _do_call() -> httpx.Response:
+        async with httpx.AsyncClient(timeout=timeout, verify=settings.jeedom_verify_ssl) as client:
+            return await client.get(url, params=full_params)
+
+    try:
+        resp = await _do_call()
+    except httpx.TimeoutException:
+        # Retry léger une fois
+        resp = await _do_call()
+
+    try:
+        trace = {
+            "params": {k: v for k, v in full_params.items() if k != "apikey"},
+            "url": url,
+            "status_code": getattr(resp, "status_code", None),
+            "body_preview": (getattr(resp, "text", "") or "").strip()[:200],
+            "ts": datetime.utcnow().isoformat() + "Z",
+        }
+        _JEEDOM_TRACES.append(trace)
+    except Exception:
+        pass
+
     return resp
 
 
@@ -229,6 +325,8 @@ async def jeedom_status(_: None = Depends(require_jwt_or_api_key)) -> dict:
             "status_code": resp.status_code,
             "body_preview": raw_text[:200],
             "note": note,
+            "verify_ssl": settings.jeedom_verify_ssl,
+            "timeout": getattr(settings, "jeedom_timeout", 10.0),
         }
     except Exception as exc:  # pragma: no cover - depends on remote Jeedom
         return {
@@ -236,6 +334,8 @@ async def jeedom_status(_: None = Depends(require_jwt_or_api_key)) -> dict:
             "base_url": base_url,
             "reachable": False,
             "error": str(exc),
+            "verify_ssl": settings.jeedom_verify_ssl,
+            "timeout": getattr(settings, "jeedom_timeout", 10.0),
         }
 
 
@@ -244,12 +344,7 @@ async def jeedom_equipments(_: None = Depends(require_jwt_or_api_key)) -> dict:
     """Retourne la liste des équipements Jeedom (fullData) + objets."""
     settings = Settings()
     try:
-        resp = await _jeedom_get(settings, {"type": "fullData"})
-        raw_text = (resp.text or "").strip()
-        try:
-            data = resp.json()
-        except Exception:
-            data = raw_text
+        data, raw_text, status_code = await _get_full_data_cached(settings)
         objects, items, _ = _extract_full_data(data)
         object_map = {
             str(obj.get("id")): obj.get("name")
@@ -257,7 +352,7 @@ async def jeedom_equipments(_: None = Depends(require_jwt_or_api_key)) -> dict:
             if isinstance(obj, dict) and obj.get("id") is not None
         }
         return {
-            "status_code": resp.status_code,
+            "status_code": status_code,
             "count": len(items),
             "items": items,
             "objects": objects,
@@ -275,13 +370,7 @@ async def jeedom_commands(_: None = Depends(require_jwt_or_api_key)) -> dict:
     """Retourne les commandes Jeedom en se basant sur fullData."""
     settings = Settings()
     try:
-        resp = await _jeedom_get(settings, {"type": "fullData"})
-        raw_text = (resp.text or "").strip()
-        try:
-            data = resp.json()
-        except Exception:
-            data = raw_text
-
+        data, raw_text, status_code = await _get_full_data_cached(settings)
         _, eq_logics, commands = _extract_full_data(data)
 
         if not commands and eq_logics:
@@ -308,10 +397,11 @@ async def jeedom_commands(_: None = Depends(require_jwt_or_api_key)) -> dict:
                     or cmd.get("eqLogic_id")
                     or cmd.get("eqLogicId"),
                 )
+                normalized.setdefault("eq_name", next((eq.get("name") for eq in eq_logics if str(eq.get("id")) == str(normalized.get("eq_id"))), None))
                 normalized_commands.append(normalized)
 
         return {
-            "status_code": resp.status_code,
+            "status_code": status_code,
             "count": len(normalized_commands),
             "items": normalized_commands,
             "raw_preview": raw_text[:200],
@@ -366,6 +456,7 @@ async def jeedom_command_run(
             pass
 
         resp = await _jeedom_get(settings, params)
+        _invalidate_full_data_cache()
         raw_text = (resp.text or "").strip()
 
         log_response = {"status_code": resp.status_code, "body_preview": raw_text[:200]}
@@ -398,6 +489,7 @@ async def jeedom_scenario(payload: ScenarioExec, _: None = Depends(require_jwt_o
                 "action": payload.action or "start",
             },
         )
+        _invalidate_full_data_cache()
         raw_text = (resp.text or "").strip()
         return {
             "status_code": resp.status_code,
@@ -421,12 +513,7 @@ async def jeedom_resolve_intent(
     """
     settings = Settings()
     try:
-        resp = await _jeedom_get(settings, {"type": "fullData"})
-        raw_text = (resp.text or "").strip()
-        try:
-            data = resp.json()
-        except Exception:
-            data = raw_text
+        data, raw_text, status_code = await _get_full_data_cached(settings)
         objects, eqs, commands = _extract_full_data(data)
     except Exception as exc:  # pragma: no cover - depends on remote Jeedom
         return {"error": str(exc)}
@@ -473,11 +560,15 @@ async def jeedom_resolve_intent(
 
     eq_name: dict[str, str] = {}
     eq_type: dict[str, str] = {}
+    eq_object: dict[str, str] = {}
     for eq in eqs:
         if isinstance(eq, dict) and eq.get("id") is not None:
             eq_name[str(eq.get("id"))] = eq.get("name") or ""
             eq_type[str(eq.get("id"))] = eq.get("eqType_name") or ""
+            if eq.get("object_id") is not None:
+                eq_object[str(eq.get("id"))] = str(eq.get("object_id"))
 
+    query_syn = _expand_synonyms(query_norm)
     candidates: list[dict] = []
     for cmd in commands:
         if not isinstance(cmd, dict):
@@ -488,6 +579,7 @@ async def jeedom_resolve_intent(
         cmd_id_str = str(cmd_id)
         eq_id = cmd.get("eq_id") or cmd.get("eqId") or cmd.get("eqLogic_id") or cmd.get("eqLogicId")
         eq_id_str = str(eq_id) if eq_id is not None else ""
+        obj_name = object_name.get(eq_object.get(eq_id_str, "") or "", "")
         labels = [
             cmd.get("name"),
             cmd.get("logicalId"),
@@ -495,11 +587,12 @@ async def jeedom_resolve_intent(
             cmd.get("subType"),
             eq_name.get(eq_id_str, ""),
             eq_type.get(eq_id_str, ""),
-            object_name.get(str(eq.get("object_id")), ""),
+            obj_name,
         ]
         merged = " ".join(filter(None, [str(x) for x in labels]))
         merged_norm = _normalize(merged)
-        score = _score_match(query_norm, merged_norm)
+        merged_syn = _expand_synonyms(merged_norm)
+        score = max(_score_match(query_norm, merged_norm), _score_match(query_syn, merged_syn))
         eqn_norm = _normalize(eq_name.get(eq_id_str, ""))
         cmd_name_norm = _normalize(cmd.get("name"))
         is_action = (cmd.get("type") or "").lower() == "action"
@@ -519,6 +612,8 @@ async def jeedom_resolve_intent(
                 "name": cmd.get("name"),
                 "eq_id": eq_id,
                 "eq_name": eq_name.get(eq_id_str),
+                "eq_type": eq_type.get(eq_id_str),
+                "object_name": obj_name,
                 "type": cmd.get("type"),
                 "subType": cmd.get("subType"),
                 "score": round(score, 3),
@@ -527,12 +622,17 @@ async def jeedom_resolve_intent(
 
     candidates_sorted = sorted(candidates, key=lambda x: x["score"], reverse=True)
 
+    need_confirmation = False
     if executed is None and (exec_flag or exec_flag is None):
         target = None
         if len(candidates_sorted) == 1:
             target = candidates_sorted[0]
         elif candidates_sorted:
             best = candidates_sorted[0]
+            if len(candidates_sorted) >= 2:
+                second = candidates_sorted[1]
+                if best.get("score", 0) >= 0.5 and abs(best.get("score", 0) - second.get("score", 0)) < 0.05:
+                    need_confirmation = True
             if best.get("score", 0) >= 0.5:
                 target = best
         if target:
@@ -562,7 +662,8 @@ async def jeedom_resolve_intent(
         "executed": executed,
         "memory_hit": memory_hit,
         "exec_flag": exec_flag,
-        "status_code": resp.status_code if "resp" in locals() else None,
+        "status_code": status_code if "status_code" in locals() else None,
+        "need_confirmation": need_confirmation,
     }
 
 
@@ -577,6 +678,12 @@ async def jeedom_resolve_intent_get(
     return await jeedom_resolve_intent(payload=payload, query=query, execute=execute, _=_)
 
 
+@router.get("/traces")
+async def jeedom_traces(_: None = Depends(require_jwt_or_api_key)) -> dict:
+    """Retourne les derniers appels Jeedom (params sans apikey, status, preview)."""
+    return {"items": list(_JEEDOM_TRACES)}
+
+
 @router.get("/catalog")
 async def jeedom_catalog(_: None = Depends(require_jwt_or_api_key)) -> dict:
     """
@@ -584,12 +691,7 @@ async def jeedom_catalog(_: None = Depends(require_jwt_or_api_key)) -> dict:
     """
     settings = Settings()
     try:
-        resp = await _jeedom_get(settings, {"type": "fullData"})
-        raw_text = (resp.text or "").strip()
-        try:
-            data = resp.json()
-        except Exception:
-            data = raw_text
+        data, raw_text, status_code = await _get_full_data_cached(settings)
         objects, eqs, cmds = _extract_full_data(data)
         return {
             "objects": [
@@ -622,7 +724,7 @@ async def jeedom_catalog(_: None = Depends(require_jwt_or_api_key)) -> dict:
                 for cmd in cmds
                 if isinstance(cmd, dict)
             ],
-            "status_code": resp.status_code,
+            "status_code": status_code,
             "raw_preview": raw_text[:200],
         }
     except Exception as exc:  # pragma: no cover - depends on remote Jeedom
@@ -726,12 +828,7 @@ async def jeedom_intents_auto(
         return {"error": "LLM_MODEL_PATH non configuré"}
 
     try:
-        resp = await _jeedom_get(settings, {"type": "fullData"})
-        raw_text = (resp.text or "").strip()
-        try:
-            data = resp.json()
-        except Exception:
-            data = raw_text
+        data, raw_text, status_code = await _get_full_data_cached(settings)
         objects, eqs, cmds = _extract_full_data(data)
     except Exception as exc:  # pragma: no cover - depends on remote Jeedom
         return {"error": str(exc)}
@@ -828,7 +925,7 @@ async def jeedom_intents_auto(
     return {
         "generated": suggestions,
         "added": added,
-        "status_code": resp.status_code if "resp" in locals() else None,
+        "status_code": status_code if "status_code" in locals() else None,
         "raw_model_output": text_out[:500] if isinstance(text_out, str) else str(text_out)[:500],
     }
 

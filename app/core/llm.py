@@ -71,9 +71,7 @@ async def _get_llama(
     n_gpu_layers: int | None = None,
 ) -> Any:
     if Llama is None:
-        raise RuntimeError(
-            "llama-cpp-python n'est pas installÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©. Utilisez 'pip install llama-cpp-python'"
-        )
+        raise RuntimeError("llama-cpp-python n'est pas installe. Utilisez 'pip install llama-cpp-python'")
     path = model_path or getattr(settings, "llm_model_path", None)
     if not path:
         raise RuntimeError("llm_model_path non dÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©fini")
@@ -112,9 +110,7 @@ class LLM:
 
     def _load_llama(self) -> Any:
         if Llama is None:
-            raise RuntimeError(
-                "llama-cpp-python n'est pas installÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©. Utilisez 'pip install llama-cpp-python'"
-            )
+            raise RuntimeError("llama-cpp-python n'est pas installe. Utilisez 'pip install llama-cpp-python'")
         if self._llama is None:
             self._llama = Llama(
                 model_path=self.model_path,
