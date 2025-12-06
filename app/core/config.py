@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     # Jeedom
     jeedom_base_url: str | None = None
     jeedom_api_key: str | None = None
+    jeedom_verify_ssl: bool = True
+    jeedom_timeout: float = 10.0
+    jeedom_allowed_hosts: list[str] = []
 
     # Recherche web
     duckduckgo_max_results: int = 5

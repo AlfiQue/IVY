@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import deque
 from time import monotonic
-from typing import Deque, Optional
+from typing import Deque, Dict, Optional
 
 from fastapi import HTTPException, Request, status
 from app.core.config import Settings
@@ -12,22 +12,31 @@ from app.core.metrics import inc_rate_limited
 class RateLimiter:
     def __init__(self, rps: int) -> None:
         self.rps = rps
-        self.calls: Deque[float] = deque()
+        self.calls: Dict[str, Deque[float]] = {}
 
-    def _check(self) -> None:
+    def _key(self, request: Request) -> str:
+        ip = request.client.host if request.client else "?"
+        path = request.url.path
+        return f"{ip}:{path}"
+
+    def _check(self, key: str) -> None:
+        calls = self.calls.setdefault(key, deque())
         now = monotonic()
-        while self.calls and now - self.calls[0] > 1:
-            self.calls.popleft()
-        if len(self.calls) >= self.rps:
+        while calls and now - calls[0] > 1:
+            calls.popleft()
+        if len(calls) >= self.rps:
             try:
                 inc_rate_limited()
             except Exception:
                 pass
             raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS)
-        self.calls.append(now)
+        calls.append(now)
+        if not calls:
+            self.calls.pop(key, None)
 
     async def __call__(self, request: Request, call_next):
-        self._check()
+        key = self._key(request)
+        self._check(key)
         return await call_next(request)
 
 
